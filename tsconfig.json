@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "outDir": "./dist",
+        "sourceMap": true,
+        "noImplicitAny": true,
+        "strict": true,
+        "target": "es5",
+        "noEmitOnError": true
+    },
+    "include": [
+        "src",
+        "test"
+    ],
+    "parcelTsPluginOptions": {
+        "transpileOnly": false
+    }
+}
