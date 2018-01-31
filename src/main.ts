@@ -1,7 +1,7 @@
 
 
 type TestResult<A> = {ok: true} | {ok: false, counterexample: A}
-declare function qc<A>(g: Gen<A>, prop: (a: A) => boolean): TestResult<A>
+// declare function qc<A>(g: Gen<A>, prop: (a: A) => boolean): TestResult<A>
 
 type RNG = {}
 const rng_seed: RNG = {}
@@ -12,9 +12,86 @@ function next(rng: RNG): number {
 function pair<A, B>(a: A, b: B): [A, B] { return [a, b] }
 function sigma<A, B>(a: A, f: (a: A) => B): [A, B] { return [a, f(a)] }
 
+export function interleave<A>(a: A[], b: A[]): A[] {
+  const out: A[] = []
+  let i = 0
+  for (; i < a.length && i < b.length; i++) {
+    out.push(a[i])
+    out.push(b[i])
+  }
+  out.push(...a.slice(i))
+  out.push(...b.slice(i))
+  return out
+}
+
+interface StrictTree<A> {
+  readonly top: A,
+  readonly forest: StrictTree<A>[]
+}
+
+class Tree<A> {
+  public constructor(
+    public readonly top: A,
+    public readonly forest: () => Tree<A>[]
+  ) {}
+  public static pure<A>(a: A): Tree<A> {
+    return new Tree(a, () => [])
+  }
+  public map<B>(f: (a: A) => B): Tree<A> {
+    return this.then(Tree.pure)
+  }
+  public then<B>(f: (a: A) => Tree<B>): Tree<B> {
+    const t = f(this.top)
+    return new Tree(t.top, () => this.forest().map(t => t.then(f)).concat(t.forest()))
+  }
+  public pair<B>(tb: Tree<B>): Tree<[A, B]> {
+    return this.then(a => tb.then(b => Tree.pure([a, b] as [A,B])))
+  }
+  public static tree<A>(top: A, forest: () => Tree<A>[]): Tree<A> {
+    return new Tree(top, forest)
+  }
+  public static tree$<A>(top: A, forest: Tree<A>[]): Tree<A> {
+    return new Tree(top, () => forest)
+  }
+  public force(): StrictTree<A> {
+    return {top: this.top, forest: this.forest().map(t => t.force())}
+  }
+}
+
+const [tree, pure] = [Tree.tree$, Tree.pure]
+
+declare var require: Function
+const pp = require('json-stringify-pretty-compact') as (s: any) => string
+const log = (s: any) => console.log(pp(s))
+
+log(tree(1, [pure(2), pure(3)]).force())
+
+console.log('----------')
+log(
+  tree(1, [pure(2), pure(3)]).then(a =>
+  tree(1, [pure(2), pure(3)]).then(b =>
+  tree(1, [pure(2), pure(3)]).then(c =>
+  pure([a, b, c])))
+).force())
+console.log('==========')
+log(
+  tree(1, [tree(2, [pure(3)])]).then(a =>
+  tree(1, [tree(2, [pure(3)])]).then(b =>
+  tree(1, [tree(2, [pure(3)])]).then(c =>
+  pure([a, b, c])))
+).force())
+console.log('----------')
+
+log(
+  tree(1, [tree(2, [pure(3), pure(4)]), pure(5)]).then(a =>
+  tree(0.1, [pure(0.01)]).then(b =>
+    pure(a * b)))
+.force())
+
+/*
 class Gen<A> {
   private constructor(
-     private readonly gen: (rng: RNG) => [A, A[] /* replace with lazy rose tree */],
+     private readonly gen: (rng: RNG) => Tree<A>
   ) {}
   public static pure<A>(a: A): Gen<A> {
     return new Gen(() => pair(a, []))
@@ -51,7 +128,8 @@ class Gen<A> {
   public then<B>(f: (a: A) => Gen<B>): Gen<B> {
     return new Gen(
       rng => {
-        const [a, as /* what about these shrinks? */] = this.gen(rng)
+        // NB: use tree then
+        const [a, as] = this.gen(rng)
         const [b, bs] = f(a).gen(rng)
         return pair(b, [...bs, ...as.map(a => f(a).gen(rng)[0])])
       })
@@ -113,3 +191,4 @@ console.log(
     ({a, b}) => a * b < 64
   )
 )
+*/

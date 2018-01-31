@@ -22,7 +22,9 @@
     "testing",
     "tdd"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "json-stringify-pretty-compact": "^1.1.0"
+  },
   "devDependencies": {
     "ava": "^0.24.0",
     "nyc": "^11.4.1",
