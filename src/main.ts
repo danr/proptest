@@ -30,30 +30,38 @@ interface StrictTree<A> {
 }
 
 class Tree<A> {
-  public constructor(
-    public readonly top: A,
-    public readonly forest: () => Tree<A>[]
+  constructor(
+    readonly top: A,
+    readonly forest: () => Tree<A>[]
   ) {}
-  public static pure<A>(a: A): Tree<A> {
+  static pure<A>(a: A): Tree<A> {
     return new Tree(a, () => [])
   }
-  public map<B>(f: (a: A) => B): Tree<A> {
-    return this.then(Tree.pure)
-  }
-  public then<B>(f: (a: A) => Tree<B>): Tree<B> {
-    const t = f(this.top)
-    return new Tree(t.top, () => this.forest().map(t => t.then(f)).concat(t.forest()))
-  }
-  public pair<B>(tb: Tree<B>): Tree<[A, B]> {
-    return this.then(a => tb.then(b => Tree.pure([a, b] as [A,B])))
-  }
-  public static tree<A>(top: A, forest: () => Tree<A>[]): Tree<A> {
+  static tree<A>(top: A, forest: () => Tree<A>[]): Tree<A> {
     return new Tree(top, forest)
   }
-  public static tree$<A>(top: A, forest: Tree<A>[]): Tree<A> {
+  static tree$<A>(top: A, forest: Tree<A>[]): Tree<A> {
     return new Tree(top, () => forest)
   }
-  public force(): StrictTree<A> {
+  map<B>(f: (a: A) => B): Tree<B> {
+    return this.then((a: A) => Tree.pure(f(a)))
+  }
+  then<B>(f: (a: A) => Tree<B>): Tree<B> {
+    const t = f(this.top)
+    return new Tree(t.top, () => [...this.forest().map(t => t.then(f)), ...t.forest()])
+  }
+  left_first_pair<B>(tb: Tree<B>): Tree<[A, B]> {
+    return this.then(a => tb.then(b => Tree.pure(pair(a, b))))
+  }
+  fair_pair<B>(tb: Tree<B>): Tree<[A, B]> {
+    return new Tree(
+      pair(this.top, tb.top),
+      () => [
+        ...this.forest().map(ta2 => ta2.fair_pair(tb)),
+        ...tb.forest().map(tb2 => this.fair_pair(tb2))
+      ])
+  }
+  force(): StrictTree<A> {
     return {top: this.top, forest: this.forest().map(t => t.force())}
   }
 }
@@ -64,7 +72,38 @@ declare var require: Function
 const pp = require('json-stringify-pretty-compact') as (s: any) => string
 const log = (s: any) => console.log(pp(s))
 
-log(tree(1, [pure(2), pure(3)]).force())
+function writer<A>(handle: (write: (...xs: A[]) => void) => void): A[] {
+  const out: A[] = []
+  handle(out.push.bind(out))
+  return out
+}
+
+const halves =
+  (n: number): number[] =>
+  writer(write => {
+    let i = n
+    do {
+      i = Math.floor(i / 2)
+      write(i)
+    } while (i > 1)
+  })
+
+function shrink_number(n: number, towards: number = 0): Tree<number> {
+  if (towards != 0) {
+    return shrink_number(towards - n).map(i => towards - i)
+  } else if (n < 0) {
+    return shrink_number(-n).map(i => -i)
+  } else {
+    return (function go(i: number): Tree<number> {
+      return new Tree(i, () => i < 1 ? [] : [...halves(i), ...(i > 2 ? [i-1] : [])].map(go))
+    })(n)
+  }
+}
+
+log(shrink_number(2, 8).force())
+log(shrink_number(2).fair_pair(shrink_number(2)).force())
+
+/*
 
 console.log('----------')
 log(
@@ -87,6 +126,7 @@ log(
   tree(0.1, [pure(0.01)]).then(b =>
     pure(a * b)))
 .force())
+*/
 
 /*
 class Gen<A> {
