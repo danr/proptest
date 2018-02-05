@@ -4,7 +4,8 @@
         "sourceMap": true,
         "noImplicitAny": true,
         "strict": true,
-        "target": "es5",
+        "lib": ["es6", "dom"],
+        "target": "es3",
         "noEmitOnError": true
     },
     "include": [
