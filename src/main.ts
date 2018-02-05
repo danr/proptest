@@ -61,8 +61,10 @@ class Tree<A> {
         ...tb.forest().map(tb2 => this.fair_pair(tb2))
       ])
   }
-  force(): StrictTree<A> {
-    return {top: this.top, forest: this.forest().map(t => t.force())}
+  force(depth: number=-1): StrictTree<A> {
+    return {top: this.top, forest:
+      depth == 0 ? [] :
+      this.forest().map(t => t.force(depth-1))}
   }
 }
 
@@ -101,7 +103,7 @@ function shrink_number(n: number, towards: number = 0): Tree<number> {
 }
 
 log(shrink_number(2, 8).force())
-log(shrink_number(2).fair_pair(shrink_number(2)).force())
+log(shrink_number(4).fair_pair(shrink_number(4).fair_pair(shrink_number(4))).force(2))
 
 /*
 
