@@ -1,5 +1,9 @@
-function pair<A, B>(a: A, b: B): [A, B] { return [a, b] }
-function sigma<A, B>(a: A, f: (a: A) => B): [A, B] { return [a, f(a)] }
+function pair<A, B>(a: A, b: B): [A, B] {
+  return [a, b]
+}
+function sigma<A, B>(a: A, f: (a: A) => B): [A, B] {
+  return [a, f(a)]
+}
 
 export function writer<A>(handle: (write: (...xs: A[]) => void) => void): A[] {
   const out: A[] = []
@@ -7,9 +11,11 @@ export function writer<A>(handle: (write: (...xs: A[]) => void) => void): A[] {
   return out
 }
 
-export function record<K extends string, V>(handle: (write: (k: K, v: V) => void) => void): Record<K, V> {
+export function record<K extends string, V>(
+  handle: (write: (k: K, v: V) => void) => void
+): Record<K, V> {
   const obj = {} as Record<K, V>
-  handle((k, v) => obj[k] = v)
+  handle((k, v) => (obj[k] = v))
   return obj
 }
 
@@ -42,15 +48,12 @@ class RNG {
 }
 
 interface StrictTree<A> {
-  readonly top: A,
+  readonly top: A
   readonly forest: StrictTree<A>[]
 }
 
 class Tree<A> {
-  constructor(
-    readonly top: A,
-    readonly forest: () => Tree<A>[]
-  ) {}
+  constructor(readonly top: A, readonly forest: () => Tree<A>[]) {}
   static pure<A>(a: A): Tree<A> {
     return new Tree(a, () => [])
   }
@@ -75,7 +78,7 @@ class Tree<A> {
     return Tree.dist({a: this, b: tb}).map(p => pair(p.a, p.b))
   }
 
-  left_first_search(p: (a: A) => boolean, fuel=-1): Tree<A> | undefined {
+  left_first_search(p: (a: A) => boolean, fuel = -1): Tree<A> | undefined {
     // used for shrinking
     // returns the last but leftmost subtree without any backtracking where the property is true
     if (p(this.top)) {
@@ -84,7 +87,7 @@ class Tree<A> {
       }
       const forest = this.forest()
       for (let i = 0; i < forest.length; i++) {
-        const res = forest[i].left_first_search(p, fuel-1)
+        const res = forest[i].left_first_search(p, fuel - 1)
         if (res != undefined) {
           return res
         }
@@ -98,12 +101,9 @@ class Tree<A> {
   static dist<T extends Record<string, any>>(trees: {[K in keyof T]: Tree<T[K]>}): Tree<T> {
     const keys: (keyof T)[] = Object.keys(trees)
     function shrink_one(k: keyof T): Tree<T>[] {
-      return trees[k].forest().map(t => Tree.dist({...trees as any, [k]: t}) as Tree<T>)
+      return trees[k].forest().map(t => Tree.dist({...(trees as any), [k]: t}) as Tree<T>)
     }
-    return new Tree<T>(
-      dict(keys, k => trees[k].top),
-      () => flatten(keys.map(shrink_one))
-    )
+    return new Tree<T>(dict(keys, k => trees[k].top), () => flatten(keys.map(shrink_one)))
   }
 
   /** distribute array fairly */
@@ -112,10 +112,11 @@ class Tree<A> {
     return Tree.dist(trees).map(t => Array.from({...t, length}))
   }
 
-  force(depth: number=-1): StrictTree<A> {
-    return {top: this.top, forest:
-      depth == 0 ? [] :
-      this.forest().map(t => t.force(depth-1))}
+  force(depth: number = -1): StrictTree<A> {
+    return {
+      top: this.top,
+      forest: depth == 0 ? [] : this.forest().map(t => t.force(depth - 1)),
+    }
   }
 }
 
@@ -123,12 +124,13 @@ const [tree, pure] = [Tree.tree$, Tree.pure]
 
 declare var require: Function
 const pp = require('json-stringify-pretty-compact') as (s: any) => string
-const log = (...s: any[]) => console.log(...s.map(u => pp(u)))
+const log = (...s: any[]) => {
+  console.dir(s, {depth: null, colors: true})
+}
 
 const resolution = 0.1
 
-const halves =
-  (n: number, round = (x: number) => Math.floor(x)): number[] =>
+const halves = (n: number, round = (x: number) => Math.floor(x)): number[] =>
   writer(write => {
     let i = n
     do {
@@ -155,7 +157,7 @@ function shrink_number(n: number, towards: number = 0): Tree<number> {
       }
       // fallback: linear search, this is not really feasible in a big range
       const range = 10
-      for (let j = i-1, c = 0; j > Math.ceil(i / 2) && c < range; j--, c++) {
+      for (let j = i - 1, c = 0; j > Math.ceil(i / 2) && c < range; j--, c++) {
         candidates.push(j)
       }
       return new Tree(i, () => candidates.map(go))
@@ -163,23 +165,13 @@ function shrink_number(n: number, towards: number = 0): Tree<number> {
   }
 }
 
-/*
-log(Tree.dist({a:shrink_number(4), b:shrink_number(2), c:shrink_number(1)}).force(2))
-log(Tree.dist_array([shrink_number(4), shrink_number(2), shrink_number(1)]).force(2))
-log(shrink_number(4).fair_pair(shrink_number(2)).force(2))
-log(shrink_number(-18.2, 8.1).force(1))
-log(shrink_number(2.5).force(2))
-*/
-
 interface GenEnv {
-  readonly rng: RNG,
+  readonly rng: RNG
   readonly size: number
 }
 
 class Gen<A> {
-  private constructor(
-     private readonly gen: (env: GenEnv) => Tree<A>
-  ) {}
+  private constructor(private readonly gen: (env: GenEnv) => Tree<A>) {}
   static pure<A>(a: A): Gen<A> {
     return new Gen(() => Tree.pure(a))
   }
@@ -187,13 +179,12 @@ class Gen<A> {
     return new Gen(env => this.gen(env).map(f))
   }
   then<B>(f: (a: A) => Gen<B>): Gen<B> {
-    return new Gen(
-      env => {
-        // could distribute size over the two arms here
-        const [r1, r2] = env.rng.split()
-        const ta = this.gen({...env, rng: r1})
-        return ta.then(a => f(a).gen({...env, rng: r2}))
-      })
+    return new Gen(env => {
+      // could distribute size over the two arms here
+      const [r1, r2] = env.rng.split()
+      const ta = this.gen({...env, rng: r1})
+      return ta.then(a => f(a).gen({...env, rng: r2}))
+    })
   }
   with_tree<B>(f: (ta: Tree<A>) => Tree<B>): Gen<B> {
     return new Gen(env => f(this.gen(env)))
@@ -202,12 +193,11 @@ class Gen<A> {
     return new Gen(env => shrink_number(env.rng.rand() % (hi - lo) + lo, lo))
   }
   static trees<A, R>(gs: Gen<A>[], f: (ts: Tree<A>[]) => Tree<R>): Gen<R> {
-    return new Gen(
-      env => {
-        const rs = env.rng.splitN(gs.length)
-        const ts = rs.map((r, i) => gs[i].gen({...env, rng: rs[i]}))
-        return f(ts)
-      })
+    return new Gen(env => {
+      const rs = env.rng.splitN(gs.length)
+      const ts = rs.map((r, i) => gs[i].gen({...env, rng: rs[i]}))
+      return f(ts)
+    })
   }
   static sequence<A>(gs: Gen<A>[]): Gen<A[]> {
     return Gen.trees(gs, Tree.dist_array)
@@ -218,40 +208,46 @@ class Gen<A> {
     return Gen.trees<T[string], T>(ts, arr => Tree.dist(dict(keys, (_k, i) => arr[i]) as any))
   }
   static pair<A, B>(ga: Gen<A>, gb: Gen<B>): Gen<[A, B]> {
-    return new Gen(
-      env => {
-        const [r1, r2] = env.rng.split()
-        const ta = ga.gen({...env, rng: r1})
-        const tb = gb.gen({...env, rng: r2})
-        return ta.fair_pair(tb)
-      })
+    return new Gen(env => {
+      const [r1, r2] = env.rng.split()
+      const ta = ga.gen({...env, rng: r1})
+      const tb = gb.gen({...env, rng: r2})
+      return ta.fair_pair(tb)
+    })
   }
   pair<B>(b: Gen<B>): Gen<[A, B]> {
     return Gen.pair(this, b)
   }
   wrap<K extends string>(k: K): Gen<Record<K, A>> {
-    return Gen.record({[k as string]: this} as any as Record<K, Gen<A>>)
+    return Gen.record(({[k as string]: this} as any) as Record<K, Gen<A>>)
   }
 
-  union<T extends Record<string, any>>(r: {[K in keyof T]: Gen<T[K]>}): Gen<A & T> { throw 'TODO?' }
-  static choose<A>(xs: A[]): Gen<A> { throw 'TODO' }
-  static frequency<A>(table: [number, Gen<A>][]): Gen<A> { throw 'TODO' }
-  static oneof<A>(gs: Gen<A>[]): Gen<A> { throw 'TODO' }
+  union<T extends Record<string, any>>(r: {[K in keyof T]: Gen<T[K]>}): Gen<A & T> {
+    throw 'TODO?'
+  }
+  static choose<A>(xs: A[]): Gen<A> {
+    throw 'TODO'
+  }
+  static frequency<A>(table: [number, Gen<A>][]): Gen<A> {
+    throw 'TODO'
+  }
+  static oneof<A>(gs: Gen<A>[]): Gen<A> {
+    throw 'TODO'
+  }
 
   resize(op: (size: number) => number): Gen<A> {
     return new Gen(env => this.gen({...env, size: op(env.size)}))
   }
   replace_shrinks(f: (forest: Tree<A>[]) => Tree<A>[]): Gen<A> {
-    return new Gen(
-      env => {
-        const {top, forest} = this.gen(env)
-        return new Tree(top, () => f(forest()))
-      })
+    return new Gen(env => {
+      const {top, forest} = this.gen(env)
+      return new Tree(top, () => f(forest()))
+    })
   }
   sample(n: number = 10): A[] {
     return replicate(n, this).gen({rng: RNG.init(0), size: 100}).top
   }
-  sampleWithShrinks(size=0): Tree<A> {
+  sampleWithShrinks(size = 0): Tree<A> {
     return this.gen({rng: RNG.init(1234), size})
   }
 }
@@ -260,9 +256,7 @@ function replicate<A>(n: number, g: Gen<A>): Gen<A[]> {
   if (n == 0) {
     return Gen.pure([] as A[])
   } else {
-    return g
-      .pair(replicate(n-1, g))
-      .map(([x, xs]) => [x, ...xs])
+    return g.pair(replicate(n - 1, g)).map(([x, xs]) => [x, ...xs])
   }
 }
 
@@ -282,7 +276,10 @@ export function fromTo(begin: number, end: number) {
   return out
 }
 
-type TestResult<A> = {ok: true} | {ok: false, counterexample: A} | {ok: false, error: any, when: 'generating' | 'evaluating'}
+type TestResult<A> =
+  | {ok: true}
+  | {ok: false; counterexample: A}
+  | {ok: false; error: any; when: 'generating' | 'evaluating'}
 
 interface Property {
   label(...stamp: (string | any)[]): void
@@ -291,17 +288,17 @@ interface Property {
 
 function Property() {
   const stamps: string[] = []
-  const covers: Record<string, {pred: boolean, required_percentage: number}> = {}
+  const covers: Record<string, {pred: boolean; required_percentage: number}> = {}
   let sealed: boolean = false
 
   return {
     api: {
       label(...stamp) {
-        sealed || (stamps.push(stamp.map(s => pp(s)).join(' ')))
+        sealed || stamps.push(stamp.map(s => pp(s)).join(' '))
       },
       cover(pred, required_percentage, label) {
         sealed || (covers[label] = {pred, required_percentage})
-      }
+      },
     } as Property,
     seal<A>(f: () => A): A {
       const res = f()
@@ -309,17 +306,20 @@ function Property() {
       return res
     },
     stamps,
-    covers
+    covers,
   }
-
 }
 
 export const default_options = {
   tests: 100,
-  maxShrinks: 1000
+  maxShrinks: 1000,
 }
 
-function QuickCheck<A>(g: Gen<A>, prop: (a: A, p: Property) => boolean, options=default_options): TestResult<A> {
+function QuickCheck<A>(
+  g: Gen<A>,
+  prop: (a: A, p: Property) => boolean,
+  options = default_options
+): TestResult<A> {
   for (let i = 0; i < options.tests; ++i) {
     let t
     try {
@@ -356,7 +356,6 @@ log(
     ({a, b}) => a * b < 1814 || a < b
   )
 )
-*/
 
 log(
   QuickCheck(Gen.record({a: Gen.range(0, 1000), b: Gen.range(0, 1000)}),
@@ -364,7 +363,6 @@ log(
   )
 )
 
-/*
 log(
   QuickCheck(replicate(10, Gen.range(0, 1250)), xs => {
     const sum = xs.reduce((a, b) => a + b, 0)
@@ -372,7 +370,6 @@ log(
     return sum < 9000
   })
 )
-*/
 
 log(
   QuickCheck(Gen.range(0, 20).then(i => replicate(i, Gen.range(0, 1250))), (xs, p) => {
@@ -384,3 +381,15 @@ log(
     return sum < 9000
   })
 )
+*/
+
+log(Tree.dist({a: shrink_number(4), b: shrink_number(2), c: shrink_number(1)}).force(2))
+log(Tree.dist_array([shrink_number(4), shrink_number(2), shrink_number(1)]).force(2))
+log(
+  shrink_number(4)
+    .fair_pair(shrink_number(2))
+    .force(2)
+)
+log(shrink_number(-18.2, 8.1).force(1))
+log(shrink_number(2.5).force(2))
+log({a: 1}.toString())
