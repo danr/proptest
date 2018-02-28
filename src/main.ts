@@ -1,125 +1,256 @@
-function pair<A, B>(a: A, b: B): [A, B] {
-  return [a, b]
-}
-function sigma<A, B>(a: A, f: (a: A) => B): [A, B] {
-  return [a, f(a)]
-}
+import * as Utils from './Utils'
+import {Tree} from './Tree'
+import {Gen, shrink_number} from './Gen'
+export {Gen, Tree}
 
-export function writer<A>(handle: (write: (...xs: A[]) => void) => void): A[] {
-  const out: A[] = []
-  handle(out.push.bind(out))
-  return out
-}
+export type TestDetails = {covers: Covers; stamps: Stamps; last_log: any[][]; tests: number}
+export type CoverData = {req: number; hit: number; miss: number}
+export type Covers = Record<string, CoverData>
+export type Stamps = Record<string, number>
 
-export function record<K extends string, V>(
-  handle: (write: (k: K, v: V) => void) => void
-): Record<K, V> {
-  const obj = {} as Record<K, V>
-  handle((k, v) => (obj[k] = v))
-  return obj
+export function expand_cover_data(data: CoverData) {
+  const N = data.hit + data.miss
+  const ratio = data.hit * 1.0 / N
+  const pct = 100 * ratio
+  return {N, ratio, pct}
 }
 
-export function dict<K extends string, V>(keys: K[], f: (k: K, index: number) => V): Record<K, V> {
-  return record<K, V>(w => keys.map((k, i) => w(k, f(k, i))))
+export type TestResult<A> = TestDetails &
+  (
+    | {ok: true; expectedFailure?: TestResult<A>}
+    | {ok: false; reason: 'counterexample'; counterexample: A; shrinks: number}
+    | {ok: false; reason: 'insufficient coverage'; label: string}
+    | {ok: false; reason: 'exception'; exception: any; when: 'generating' | 'evaluating'}
+    | {ok: false; reason: 'unexpected success'})
+
+const leftpad = (i: number, s: string) =>
+  Utils.range(i - s.length)
+    .map(_ => ' ')
+    .join('') + s
+
+const pct = (i: number) => leftpad(3, '' + Math.round(i)) + '%'
+
+export function PrintTestDetails(details: TestDetails) {
+  details.last_log.forEach(objs => console.log(...objs))
+
+  Utils.record_traverse(details.stamps, (occs, stamp) => ({occs, stamp}))
+    .sort((x, y) => y.occs - x.occs)
+    .map(({occs, stamp}) => console.log(pct(100 * occs / details.tests), stamp))
+
+  Utils.record_forEach(details.covers, (data, label) => {
+    const expanded = expand_cover_data(data)
+    console.log(pct(expanded.pct), '/' + pct(data.req), ' ', label)
+  })
 }
 
-export function flatten<X>(xss: X[][]): X[] {
-  return ([] as X[]).concat(...xss)
+export function PrintTestResult(result: TestResult<any>, verbose: boolean=false) {
+  if (result.ok) {
+    if (result.expectedFailure) {
+      console.log(`Ok, failing as expected:`)
+      PrintTestResult(result.expectedFailure, verbose)
+      console.log(`(expected failure)`)
+    } else {
+      verbose && PrintTestDetails(result)
+      console.log(`Ok, passed ${result.tests} tests.`)
+    }
+  } else {
+    PrintTestDetails(result)
+    switch (result.reason) {
+      case 'counterexample':
+        console.log(
+          `Counterexample found after ${result.tests} tests and ${result.shrinks} shrinks:`
+        )
+        console.log(result.counterexample)
+        return
+      case 'exception':
+        console.log(`Exception when ${result.when} after ${result.tests}:`)
+        console.log(result.exception)
+        return
+      case 'insufficient coverage':
+        console.log(`Insufficient coverage for label ${result.label}`)
+        return
+
+      case 'unexpected success':
+        console.log(`Unexpected success in presence of expectFailure`)
+        return
+
+      default:
+        const _: never = result
+    }
+  }
 }
 
-// my fantastic RNG
-class RNG {
-  private constructor(
-    private readonly seed: number // unused
-  ) {}
-
-  split(): [RNG, RNG] {
-    return [this, this] // cheating
-  }
-  splitN(n: number): RNG[] {
-    return new Array(n).fill(this) // cheating
-  }
-  rand(): number {
-    return Math.floor(Math.random() * (1 << 30))
-  }
-  public static init(seed: number) {
-    return new RNG(seed)
-  }
+interface Property {
+  cover(pred: boolean, required_percentage: number, label: string): void
+  fail(msg: any): void
+  label(stamp: string | any): void
+  log(...msg: any[]): void
 }
 
-interface StrictTree<A> {
-  readonly top: A
-  readonly forest: StrictTree<A>[]
+function succ(x: Record<string, number>, s: string) {
+  x[s] = (x[s] || (x[s] = 0)) + 1
 }
 
-class Tree<A> {
-  constructor(readonly top: A, readonly forest: () => Tree<A>[]) {}
-  static pure<A>(a: A): Tree<A> {
-    return new Tree(a, () => [])
-  }
-  static tree<A>(top: A, forest: () => Tree<A>[]): Tree<A> {
-    return new Tree(top, forest)
-  }
-  static tree$<A>(top: A, forest: Tree<A>[]): Tree<A> {
-    return new Tree(top, () => forest)
-  }
-  map<B>(f: (a: A) => B): Tree<B> {
-    return this.then((a: A) => Tree.pure(f(a)))
-  }
-  then<B>(f: (a: A) => Tree<B>): Tree<B> {
-    const t = f(this.top)
-    return new Tree(t.top, () => [...this.forest().map(t => t.then(f)), ...t.forest()])
-  }
+const serialize = (s: any) => (typeof s == 'string' ? s : JSON.stringify(s))
 
-  left_first_pair<B>(tb: Tree<B>): Tree<[A, B]> {
-    return this.then(a => tb.then(b => Tree.pure(pair(a, b))))
-  }
-  fair_pair<B>(tb: Tree<B>): Tree<[A, B]> {
-    return Tree.dist({a: this, b: tb}).map(p => pair(p.a, p.b))
-  }
+function Property() {
+  let last_log: any[][] = []
+  let last_stamps: Record<string, boolean> = {}
+  const stamps: Record<string, number> = {}
+  let last_cover: Record<string, boolean> = {}
+  const cover_req: Record<string, number> = {}
+  const cover_hit: Record<string, number> = {}
+  const cover_miss: Record<string, number> = {}
+  let sealed: boolean = false
 
-  left_first_search(p: (a: A) => boolean, fuel = -1): Tree<A> | undefined {
-    // used for shrinking
-    // returns the last but leftmost subtree without any backtracking where the property is true
-    if (p(this.top)) {
-      if (fuel == 0) {
-        return this
-      }
-      const forest = this.forest()
-      for (let i = 0; i < forest.length; i++) {
-        const res = forest[i].left_first_search(p, fuel - 1)
-        if (res != undefined) {
-          return res
+  return {
+    api: {
+      log(...msg) {
+        last_log.push(msg)
+      },
+      label(stamp) {
+        last_stamps[serialize(stamp)] = true
+      },
+      cover(pred, req, label) {
+        const req0 = cover_req[label]
+        if (req0 !== undefined && req0 != req) {
+          throw `Different coverage requirements for ${label}: ${req0} and ${req}`
         }
+        if (last_cover[label]) {
+          throw `Label already registered: ${label}`
+        }
+        last_cover[label] = true
+        cover_req[label] = req
+        if (pred) {
+          succ(cover_hit, label)
+        } else {
+          succ(cover_miss, label)
+        }
+      },
+      fail(msg) {
+        throw msg
+      },
+    } as Property,
+    round<A>(f: () => A): A {
+      last_log = []
+      last_stamps = {}
+      last_cover = {}
+      const res = f()
+      Utils.record_forEach(last_stamps, (b, stamp) => b && succ(stamps, stamp))
+      return res
+    },
+    test_details(tests: number): TestDetails {
+      return {
+        stamps,
+        last_log,
+        covers: Utils.record_map(cover_req, (req, label) => ({
+          req,
+          hit: cover_hit[label],
+          miss: cover_miss[label],
+        })),
+        tests,
       }
-      return this
-    }
-    return undefined
-  }
-
-  /** distribute fairly */
-  static dist<T extends Record<string, any>>(trees: {[K in keyof T]: Tree<T[K]>}): Tree<T> {
-    const keys: (keyof T)[] = Object.keys(trees)
-    function shrink_one(k: keyof T): Tree<T>[] {
-      return trees[k].forest().map(t => Tree.dist({...(trees as any), [k]: t}) as Tree<T>)
-    }
-    return new Tree<T>(dict(keys, k => trees[k].top), () => flatten(keys.map(shrink_one)))
-  }
-
-  /** distribute array fairly */
-  static dist_array<A>(trees: Tree<A>[]): Tree<A[]> {
-    const length = trees.length
-    return Tree.dist(trees).map(t => Array.from({...t, length}))
-  }
-
-  force(depth: number = -1): StrictTree<A> {
-    return {
-      top: this.top,
-      forest: depth == 0 ? [] : this.forest().map(t => t.force(depth - 1)),
-    }
+    },
   }
 }
 
+export const default_options = {
+  tests: 100,
+  maxShrinks: 1000,
+  seed: 43 as number | undefined,
+  expectFailure: false,
+  verbose: false
+}
+
+export function option(opts: Partial<typeof default_options>): typeof default_options {
+  return {...default_options, ...opts}
+}
+
+export function qc<A>(
+  g: Gen<A>,
+  prop: (a: A, p: Property) => boolean,
+  options = default_options
+): boolean {
+  const res = QuickCheck(g, prop, options)
+  if (!res.ok) {
+    PrintTestResult(res)
+  }
+  return res.ok
+}
+
+type Tape = (name: string, cb: (t: {true(x: any): void, end(): void}) => void) => void
+
+export function tape_adapter(test: Tape): <A>(
+  name: string,
+  g: Gen<A>,
+  prop: (a: A, p: Property) => boolean,
+  options?: typeof default_options
+) => void {
+  return (name, g, prop, options) => test(name, t => (t.true(qc(g, prop, options)), t.end()))
+}
+
+export function QuickCheck<A>(
+  g: Gen<A>,
+  prop: (a: A, p: Property) => boolean,
+  options = default_options
+): TestResult<A> {
+  const p = Property()
+  function ret(res: TestResult<A>): TestResult<A> {
+    if (options.expectFailure) {
+      if (res.ok) {
+        return {...res, ok: false, reason: 'unexpected success'}
+      } else {
+        return {...res, ok: true, expectedFailure: res}
+      }
+    } else {
+      return res
+    }
+  }
+  for (let tests = 0; tests < options.tests; ++tests) {
+    let t0
+    try {
+      t0 = g.sampleWithShrinks(tests % 100, options.seed)
+    } catch (exception) {
+      return ret({
+        ok: false,
+        reason: 'exception',
+        exception,
+        when: 'generating',
+        ...p.test_details(tests),
+      })
+    }
+    const t = t0.map((counterexample, shrinks) => ({counterexample, shrinks}))
+    let failtree: typeof t | undefined
+    const prop_ = (a: typeof t.top) => p.round(() => !prop(a.counterexample, p.api))
+    try {
+      failtree = t.left_first_search(prop_, options.maxShrinks)
+    } catch (exception) {
+      return ret({
+        ok: false,
+        reason: 'exception',
+        exception,
+        when: 'evaluating',
+        ...p.test_details(tests),
+      })
+    }
+    if (failtree) {
+      return ret({ok: false, reason: 'counterexample', ...failtree.top, ...p.test_details(tests)})
+    }
+  }
+  const test_details = p.test_details(options.tests)
+  for (const {data, label} of Utils.record_traverse(test_details.covers, (data, label) => ({
+    data,
+    label,
+  }))) {
+    const expanded = expand_cover_data(data)
+    if (expanded.pct < data.req) {
+      return ret({ok: false, reason: 'insufficient coverage', label, ...test_details})
+    }
+  }
+  return ret({ok: true, ...test_details})
+}
+
+/*
 const [tree, pure] = [Tree.tree$, Tree.pure]
 
 declare var require: Function
@@ -128,223 +259,6 @@ const log = (...s: any[]) => {
   console.dir(s, {depth: null, colors: true})
 }
 
-const resolution = 0.1
-
-const halves = (n: number, round = (x: number) => Math.floor(x)): number[] =>
-  writer(write => {
-    let i = n
-    do {
-      i = round(i / 2)
-      write(i)
-    } while (i > resolution)
-  })
-
-function shrink_number(n: number, towards: number = 0): Tree<number> {
-  if (towards != 0) {
-    return shrink_number(towards - n).map(i => towards - i)
-  } else if (n < 0) {
-    return shrink_number(-n).map(i => -i)
-  } else {
-    return (function go(i: number): Tree<number> {
-      const candidates: number[] = []
-      if (i > 0) {
-        // binary search:
-        candidates.push(...halves(i))
-        // binary search with fractions
-        if (Math.round(i) != i && i > resolution) {
-          candidates.push(...halves(i, x => x))
-        }
-      }
-      // fallback: linear search, this is not really feasible in a big range
-      const range = 10
-      for (let j = i - 1, c = 0; j > Math.ceil(i / 2) && c < range; j--, c++) {
-        candidates.push(j)
-      }
-      return new Tree(i, () => candidates.map(go))
-    })(n)
-  }
-}
-
-interface GenEnv {
-  readonly rng: RNG
-  readonly size: number
-}
-
-class Gen<A> {
-  private constructor(private readonly gen: (env: GenEnv) => Tree<A>) {}
-  static pure<A>(a: A): Gen<A> {
-    return new Gen(() => Tree.pure(a))
-  }
-  map<B>(f: (a: A) => B): Gen<B> {
-    return new Gen(env => this.gen(env).map(f))
-  }
-  then<B>(f: (a: A) => Gen<B>): Gen<B> {
-    return new Gen(env => {
-      // could distribute size over the two arms here
-      const [r1, r2] = env.rng.split()
-      const ta = this.gen({...env, rng: r1})
-      return ta.then(a => f(a).gen({...env, rng: r2}))
-    })
-  }
-  with_tree<B>(f: (ta: Tree<A>) => Tree<B>): Gen<B> {
-    return new Gen(env => f(this.gen(env)))
-  }
-  static range(lo: number, hi: number): Gen<number> {
-    return new Gen(env => shrink_number(env.rng.rand() % (hi - lo) + lo, lo))
-  }
-  static trees<A, R>(gs: Gen<A>[], f: (ts: Tree<A>[]) => Tree<R>): Gen<R> {
-    return new Gen(env => {
-      const rs = env.rng.splitN(gs.length)
-      const ts = rs.map((r, i) => gs[i].gen({...env, rng: rs[i]}))
-      return f(ts)
-    })
-  }
-  static sequence<A>(gs: Gen<A>[]): Gen<A[]> {
-    return Gen.trees(gs, Tree.dist_array)
-  }
-  static record<T extends Record<string, any>>(r: {[K in keyof T]: Gen<T[K]>}): Gen<T> {
-    const keys = Object.keys(r)
-    const ts = keys.map(k => r[k])
-    return Gen.trees<T[string], T>(ts, arr => Tree.dist(dict(keys, (_k, i) => arr[i]) as any))
-  }
-  static pair<A, B>(ga: Gen<A>, gb: Gen<B>): Gen<[A, B]> {
-    return new Gen(env => {
-      const [r1, r2] = env.rng.split()
-      const ta = ga.gen({...env, rng: r1})
-      const tb = gb.gen({...env, rng: r2})
-      return ta.fair_pair(tb)
-    })
-  }
-  pair<B>(b: Gen<B>): Gen<[A, B]> {
-    return Gen.pair(this, b)
-  }
-  wrap<K extends string>(k: K): Gen<Record<K, A>> {
-    return Gen.record(({[k as string]: this} as any) as Record<K, Gen<A>>)
-  }
-
-  union<T extends Record<string, any>>(r: {[K in keyof T]: Gen<T[K]>}): Gen<A & T> {
-    throw 'TODO?'
-  }
-  static choose<A>(xs: A[]): Gen<A> {
-    throw 'TODO'
-  }
-  static frequency<A>(table: [number, Gen<A>][]): Gen<A> {
-    throw 'TODO'
-  }
-  static oneof<A>(gs: Gen<A>[]): Gen<A> {
-    throw 'TODO'
-  }
-
-  resize(op: (size: number) => number): Gen<A> {
-    return new Gen(env => this.gen({...env, size: op(env.size)}))
-  }
-  replace_shrinks(f: (forest: Tree<A>[]) => Tree<A>[]): Gen<A> {
-    return new Gen(env => {
-      const {top, forest} = this.gen(env)
-      return new Tree(top, () => f(forest()))
-    })
-  }
-  sample(n: number = 10): A[] {
-    return replicate(n, this).gen({rng: RNG.init(0), size: 100}).top
-  }
-  sampleWithShrinks(size = 0): Tree<A> {
-    return this.gen({rng: RNG.init(1234), size})
-  }
-}
-
-function replicate<A>(n: number, g: Gen<A>): Gen<A[]> {
-  if (n == 0) {
-    return Gen.pure([] as A[])
-  } else {
-    return g.pair(replicate(n - 1, g)).map(([x, xs]) => [x, ...xs])
-  }
-}
-
-export function range(to: number) {
-  const out = []
-  for (let i = 0; i < to; ++i) {
-    out.push(i)
-  }
-  return out
-}
-
-export function fromTo(begin: number, end: number) {
-  const out = []
-  for (let i = begin; i < end; ++i) {
-    out.push(i)
-  }
-  return out
-}
-
-type TestResult<A> =
-  | {ok: true}
-  | {ok: false; counterexample: A}
-  | {ok: false; error: any; when: 'generating' | 'evaluating'}
-
-interface Property {
-  label(...stamp: (string | any)[]): void
-  cover(pred: boolean, required_percentage: number, label: string): void
-}
-
-function Property() {
-  const stamps: string[] = []
-  const covers: Record<string, {pred: boolean; required_percentage: number}> = {}
-  let sealed: boolean = false
-
-  return {
-    api: {
-      label(...stamp) {
-        sealed || stamps.push(stamp.map(s => pp(s)).join(' '))
-      },
-      cover(pred, required_percentage, label) {
-        sealed || (covers[label] = {pred, required_percentage})
-      },
-    } as Property,
-    seal<A>(f: () => A): A {
-      const res = f()
-      sealed = true
-      return res
-    },
-    stamps,
-    covers,
-  }
-}
-
-export const default_options = {
-  tests: 100,
-  maxShrinks: 1000,
-}
-
-function QuickCheck<A>(
-  g: Gen<A>,
-  prop: (a: A, p: Property) => boolean,
-  options = default_options
-): TestResult<A> {
-  for (let i = 0; i < options.tests; ++i) {
-    let t
-    try {
-      t = g.sampleWithShrinks(i)
-    } catch (error) {
-      return {ok: false, error, when: 'generating'}
-    }
-    const a = t.top
-    let failtree
-    const p = Property()
-    const prop_ = (a: A) => p.seal(() => !prop(a, p.api))
-    try {
-      failtree = t.left_first_search(prop_, options.maxShrinks)
-    } catch (error) {
-      return {ok: false, error, when: 'evaluating'}
-    }
-    if (failtree) {
-      return {ok: false, counterexample: failtree.top}
-    }
-    console.log(p.covers, p.stamps.join(' '))
-  }
-  return {ok: true}
-}
-
-/*
 log(
   QuickCheck(Gen.record({a: Gen.range(0, 100000), b: Gen.range(0, 100000)}),
     ({a, b}) => a * b < 1814 || a < b // tricky
@@ -367,7 +281,7 @@ log(
   QuickCheck(replicate(10, Gen.range(0, 1250)), xs => {
     const sum = xs.reduce((a, b) => a + b, 0)
     // log({xs, sum})
-    return sum < 9000
+    return ret(sum < 9000)
   })
 )
 
@@ -378,10 +292,9 @@ log(
     p.label(xs)
     p.cover(xs.length > 10, 50, 'non-trivial')
     // log({xs, sum})
-    return sum < 9000
+    return ret(sum < 9000)
   })
 )
-*/
 
 log(Tree.dist({a: shrink_number(4), b: shrink_number(2), c: shrink_number(1)}).force(2))
 log(Tree.dist_array([shrink_number(4), shrink_number(2), shrink_number(1)]).force(2))
@@ -393,3 +306,4 @@ log(
 log(shrink_number(-18.2, 8.1).force(1))
 log(shrink_number(2.5).force(2))
 log({a: 1}.toString())
+*/
