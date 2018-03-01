@@ -80,8 +80,13 @@ export function record_map<K extends string, A, B>(
 export function deepEquals(x: any, y: any): boolean {
   if (x === y || x === null || y === null) {
     return x === y
-  } else if (Array.isArray(x) && Array.isArray(y)) {
-    return x.length == y.length && x.every((e, i) => deepEquals(e, y[i]))
+  } else if (Array.isArray(x) || Array.isArray(y)) {
+    return (
+      Array.isArray(x) &&
+      Array.isArray(y) &&
+      x.length == y.length &&
+      x.every((e, i) => deepEquals(e, y[i]))
+    )
   } else if (typeof x === 'object' && typeof y === 'object') {
     const xk = Object.keys(x).sort()
     const yk = Object.keys(y).sort()

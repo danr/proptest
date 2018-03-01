@@ -202,7 +202,10 @@ export function QuickCheck<A>(
   for (let tests = 0; tests < options.tests; ++tests) {
     let t0
     try {
-      t0 = g.sampleWithShrinks(tests % 100, options.seed === undefined ? undefined : tests + options.seed)
+      t0 = g.sampleWithShrinks(
+        tests % 100,
+        options.seed === undefined ? undefined : tests + options.seed
+      )
     } catch (exception) {
       return ret({
         ...not_ok,
