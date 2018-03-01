@@ -44,6 +44,30 @@ qc(
 )
 
 qc(
+  'traverse homomorphic',
+  Gen.nat.pojo().replicate(2),
+  ([a, b], p) => {
+    const k = (r: typeof a) => Utils.record_traverse(r, (v,k) => ({k,v}))
+    return p.deepEquals(k(a).concat(k(b)), k({...a, ...b}))
+  },
+  main.option({expectFailure: true})
+  )
+
+qc(
+  'traverse homomorphic with no overlap',
+  Gen.nat.pojo().replicate(2),
+  ([a, b], p) => {
+    const k = (r: typeof a) => Utils.record_traverse(r, (v,k) => ({k,v}))
+    const overlap = Object.keys(a).some(k => Object.keys(b).some(k2 => k == k2))
+    p.cover(!overlap, 85, '!overlap')
+    return overlap || p.deepEquals(
+      k(a).concat(k(b)),
+      k({...a, ...b}))
+  },
+  )
+
+
+qc(
   'tree join left',
   GTree(Gen.nat),
   t =>

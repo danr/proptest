@@ -20,7 +20,7 @@ export type TestResult<A> = TestDetails &
     | {ok: true; expectedFailure?: TestResult<A>}
     | {ok: false; reason: 'counterexample'; counterexample: A; shrinks: number}
     | {ok: false; reason: 'insufficient coverage'; label: string}
-    | {ok: false; reason: 'exception'; exception: any; when: 'generating' | 'evaluating'}
+    | {ok: false; reason: 'exception'; exception: any; when: 'generating' | 'evaluating', counterexample?: A}
     | {ok: false; reason: 'unexpected success'})
 
 export function PrintTestDetails(details: TestDetails) {
@@ -58,6 +58,10 @@ export function PrintTestResult(result: TestResult<any>, verbose: boolean = fals
       case 'exception':
         console.log(`Exception when ${result.when} after ${result.tests}:`)
         console.log(result.exception)
+        if (result.counterexample) {
+          console.log(`Exception occured with this input:`)
+          console.log(result.counterexample)
+        }
         return
       case 'insufficient coverage':
         console.log(`Insufficient coverage for label ${result.label}`)
@@ -74,6 +78,7 @@ export function PrintTestResult(result: TestResult<any>, verbose: boolean = fals
 }
 
 export interface Property {
+  deepEquals(lhs: any, rhs: any): boolean
   cover(pred: boolean, required_percentage: number, label: string): void
   fail(msg: any): void
   label(stamp: string | any): void
@@ -117,13 +122,25 @@ function Property() {
       fail(msg) {
         throw msg
       },
+      deepEquals(lhs, rhs) {
+        const e = Utils.deepEquals(lhs, rhs)
+        if (!e) {
+          this.log('Not deeply equal:')
+          this.log(lhs, '!=', rhs)
+        }
+        return e
+      }
     } as Property,
-    round<A>(f: () => A): A {
+    round(f: () => boolean): boolean {
+      const init_log = last_log
       last_log = []
       last_stamps = {}
       last_cover = {}
       const res = f()
       Utils.record_forEach(last_stamps, (b, stamp) => b && Utils.succ(stamps, stamp))
+      if (!res) {
+        last_log = init_log
+      }
       return res
     },
     test_details(tests: number): TestDetails {
@@ -185,9 +202,10 @@ export function QuickCheck<A>(
         ...p.test_details(tests),
       })
     }
+    let current: A | undefined = undefined
     const t = t0.map((counterexample, shrinks) => ({counterexample, shrinks}))
     let failtree: typeof t | undefined
-    const prop_ = (a: typeof t.top) => p.round(() => !prop(a.counterexample, p.api))
+    const prop_ = (a: typeof t.top) => p.round(() => (current = a.counterexample, !prop(a.counterexample, p.api)))
     try {
       failtree = t.left_first_search(prop_, options.maxShrinks)
     } catch (exception) {
@@ -196,6 +214,7 @@ export function QuickCheck<A>(
         reason: 'exception',
         exception,
         when: 'evaluating',
+        counterexample: current,
         ...p.test_details(tests),
       })
     }

@@ -43,6 +43,12 @@ export function char_range(begin: string, end: string): string[] {
   return fromTo(begin.charCodeAt(0), end.charCodeAt(0)).map(x => String.fromCharCode(x))
 }
 
+export function record_create<K extends string, V>(xs: {k: K, v: V}[]): Record<K, V> {
+  const out = {} as Record<K, V>
+  xs.forEach(x => out[x.k] = x.v)
+  return out
+}
+
 export function record_forEach<K extends string, A>(
   x: Record<K, A>,
   k: (a: A, id: K) => void
@@ -72,38 +78,26 @@ export function record_map<K extends string, A, B>(
 }
 
 export function deepEquals(x: any, y: any): boolean {
-  if (Array.isArray(x) && Array.isArray(y)) {
+  if (x === y || x === null || y === null) {
+    return x === y
+  } else if (Array.isArray(x) && Array.isArray(y)) {
     return x.length == y.length && x.every((e, i) => deepEquals(e, y[i]))
   } else if (typeof x === 'object' && typeof y === 'object') {
-    if (x === null) {
-      return y === null
-    }
     const xk = Object.keys(x).sort()
-    const yk = Object.keys(x).sort()
+    const yk = Object.keys(y).sort()
     return deepEquals(xk, yk) && xk.every(k => deepEquals(x[k], y[k]))
-  } else if (typeof x === 'boolean' && typeof y === 'boolean') {
-    return x === y
-  } else if (typeof x === 'number' && typeof y === 'number') {
-    return x === y
-  } else if (typeof x === 'string' && typeof y === 'string') {
-    return x === y
-  } else if (typeof x === 'undefined' && typeof y === 'undefined') {
-    return x === y
   } else {
     return false
   }
 }
 
 export function size(x: any): number {
-  if (Array.isArray(x)) {
-    return x.reduce((p, n) => p + size(n), 1)
-  } else if (typeof x === 'object') {
-    if (x === null) {
-      return 1
-    }
-    return size(Object.keys(x).map(k => x[k]))
-  } else {
+  if (typeof x !== 'object') {
     return 1
+  } else if (Array.isArray(x)) {
+    return x.reduce((p, n) => p + size(n), 1)
+  } else {
+    return size(Object.keys(x).map(k => x[k]))
   }
 }
 
@@ -114,8 +108,8 @@ const leftpad = (i: number, s: string) =>
 
 export const pct = (i: number) => leftpad(3, '' + Math.round(i)) + '%'
 
-export function succ(x: Record<string, number>, s: string) {
-  x[s] = (x[s] || (x[s] = 0)) + 1
+export function succ(x: Record<string, number>, s: string): number {
+  return x[s] = (x[s] || (x[s] = 0)) + 1
 }
 
 export const serialize = (s: any) => (typeof s == 'string' ? s : JSON.stringify(s))
