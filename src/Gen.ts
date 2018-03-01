@@ -91,27 +91,27 @@ export class Gen<A> {
   }
 
   /** max exclusive */
-  static uniform(max: number) {
-    return Gen.range(0, max)
+  static range(max: number) {
+    return Gen.between(0, max)
   }
 
   /** max exclusive */
-  static uniform_float(max: number = 1) {
-    return Gen.range_float(0, max)
+  static range_float(max: number = 1) {
+    return Gen.between_float(0, max)
   }
 
   /** hi exclusive */
-  static range(lo: number, hi: number): Gen<number> {
-    return Gen._range(lo, hi, (rng, lo, hi) => rng.integer(lo, hi - 1))
+  static between(lo: number, hi: number): Gen<number> {
+    return Gen._between(lo, hi, (rng, lo, hi) => rng.integer(lo, hi - 1))
   }
 
   /** hi exclusive */
-  static range_float(lo: number, hi: number): Gen<number> {
-    return Gen._range(lo, hi, (rng, lo, hi) => rng.real(lo, hi))
+  static between_float(lo: number, hi: number): Gen<number> {
+    return Gen._between(lo, hi, (rng, lo, hi) => rng.real(lo, hi))
   }
 
   /** hi exclusive */
-  private static _range(
+  private static _between(
     lo: number,
     hi: number,
     random: (rng: Random, lo: number, hi: number) => number
@@ -121,59 +121,57 @@ export class Gen<A> {
       throw 'Range bounds must be proper numbers:' + {hi, lo}
     }
     if (w0 < 0) {
-      return Gen._range(lo, hi, random).map(x => hi - x + lo)
+      return Gen._between(lo, hi, random).map(x => hi - x + lo)
     } else if (w0 == 0) {
       throw 'Gen.range of zero width'
     } else {
       return new Gen(env => {
-        // const w = Math.max(1, Math.min(w0, Math.ceil(w0 * env.size / 100.0)))
         const w = hi - lo
-        const t = shrink_number(random(env.rng, lo, lo + w), lo)
-        return t
+        // Math.max(1, Math.min(w0, Math.ceil(w0 * r)))
+        return shrink_number(random(env.rng, lo, lo + w), lo)
       })
     }
   }
 
   /** hi inclusive */
   static char_range(lo: string, hi: string): Gen<string> {
-    return Gen.range(lo.charCodeAt(0), hi.charCodeAt(0)).map(i => String.fromCharCode(i))
-  }
-
-  static choose<A>(xs: A[]): Gen<A> {
-    if (xs.length == 0) {
-      throw 'Gen.choose empty array'
-    } else {
-      return Gen.range(0, xs.length).map(i => xs[i])
-    }
+    return Gen.between(lo.charCodeAt(0), hi.charCodeAt(0)).map(i => String.fromCharCode(i))
   }
   static char(chars: string): Gen<string> {
     if (chars.length == 0) {
       throw 'Gen.choose empty string'
     } else {
-      return Gen.range(0, chars.length).map(i => chars[i])
+      return Gen.between(0, chars.length).map(i => chars[i])
     }
+  }
+  static choose<A>(xs: A[]): Gen<A> {
+    if (xs.length == 0) {
+      throw 'Gen.choose empty array'
+    } else {
+      return Gen.between(0, xs.length).map(i => xs[i])
+    }
+  }
+  static oneof<A>(gs: Gen<A>[]): Gen<A> {
+    return Gen.choose(gs).then(g => g)
   }
   static frequency<A>(table: [number, Gen<A>][]): Gen<A> {
     let sum = 0
     table.forEach(([f, g]) => {
-      if (f < 0) {
-        throw 'Gen.frequency negative frequency'
-      } else {
+      if (f >= 0) {
         sum += f
       }
     })
-    return Gen.range(0, sum).then(i => {
+    return Gen.between(0, sum).then(i => {
       for (const [f, g] of table) {
-        i -= f
+        if (f > 0) {
+          i -= f
+        }
         if (i < 0) {
           return g
         }
       }
       throw 'Gen.frequency unreachable'
     })
-  }
-  static oneof<A>(gs: Gen<A>[]): Gen<A> {
-    return Gen.choose(gs).then(g => g)
   }
   replicate(n: number): Gen<A[]> {
     if (n <= 0) {
@@ -208,7 +206,7 @@ export class Gen<A> {
 
   static bool: Gen<boolean> = Gen.choose([false, true])
 
-  static nat: Gen<number> = Gen.size().then(size => Gen.uniform(size + 1))
+  static nat: Gen<number> = Gen.size().then(size => Gen.range(size + 1))
   static int: Gen<number> = Gen.oneof([Gen.nat, Gen.nat.map(x => -x)])
   static pos: Gen<number> = Gen.nat.map(x => x + 1)
   static neg: Gen<number> = Gen.nat.map(x => -x - 1)
@@ -260,5 +258,20 @@ export class Gen<A> {
   }
   resize(op: (size: number) => number): Gen<A> {
     return new Gen(env => this.gen({...env, size: Math.max(1, op(env.size))}))
+  }
+
+  /** Permute using Fisher-Yates shuffle */
+  static permute<A>(xs: A[]): Gen<A[]> {
+    const m_swaps: Gen<{i: number; j: number}>[] = []
+    for (let i = 0; i < xs.length - 1; i++) {
+      m_swaps.push(Gen.between(i, xs.length).map(j => ({i, j})))
+    }
+    return Gen.sequence(m_swaps).map(swaps => {
+      const ys = xs.slice()
+      swaps.forEach(({j, i}) => {
+        ;[ys[i], ys[j]] = [ys[j], ys[i]]
+      })
+      return ys
+    })
   }
 }
