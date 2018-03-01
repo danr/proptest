@@ -43,9 +43,9 @@ export function char_range(begin: string, end: string): string[] {
   return fromTo(begin.charCodeAt(0), end.charCodeAt(0)).map(x => String.fromCharCode(x))
 }
 
-export function record_create<K extends string, V>(xs: {k: K, v: V}[]): Record<K, V> {
+export function record_create<K extends string, V>(xs: {k: K; v: V}[]): Record<K, V> {
   const out = {} as Record<K, V>
-  xs.forEach(x => out[x.k] = x.v)
+  xs.forEach(x => (out[x.k] = x.v))
   return out
 }
 
@@ -109,7 +109,7 @@ const leftpad = (i: number, s: string) =>
 export const pct = (i: number) => leftpad(3, '' + Math.round(i)) + '%'
 
 export function succ(x: Record<string, number>, s: string): number {
-  return x[s] = (x[s] || (x[s] = 0)) + 1
+  return (x[s] = (x[s] || (x[s] = 0)) + 1)
 }
 
 export const serialize = (s: any) => (typeof s == 'string' ? s : JSON.stringify(s))

@@ -228,8 +228,13 @@ export class Gen<A> {
     return g.nearray().map(xs => xs.join(sep))
   }
 
-  static pojo<A>(v: Gen<A>, k: Gen<string> = Gen.nestring(Gen.lower).resize(s => s / 5)): Gen<Record<string, A>> {
-    return Gen.record({k, v}).array().map(Utils.record_create)
+  static pojo<A>(
+    v: Gen<A>,
+    k: Gen<string> = Gen.nestring(Gen.lower).resize(s => s / 5)
+  ): Gen<Record<string, A>> {
+    return Gen.record({k, v})
+      .array()
+      .map(Utils.record_create)
   }
 
   pojo(keygen?: Gen<string>): Gen<Record<string, A>> {

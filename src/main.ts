@@ -20,7 +20,13 @@ export type TestResult<A> = TestDetails &
     | {ok: true; expectedFailure?: TestResult<A>}
     | {ok: false; reason: 'counterexample'; counterexample: A; shrinks: number}
     | {ok: false; reason: 'insufficient coverage'; label: string}
-    | {ok: false; reason: 'exception'; exception: any; when: 'generating' | 'evaluating', counterexample?: A}
+    | {
+        ok: false
+        reason: 'exception'
+        exception: any
+        when: 'generating' | 'evaluating'
+        counterexample?: A
+      }
     | {ok: false; reason: 'unexpected success'})
 
 export function PrintTestDetails(details: TestDetails) {
@@ -129,7 +135,7 @@ function Property() {
           this.log(lhs, '!=', rhs)
         }
         return e
-      }
+      },
     } as Property,
     round(f: () => boolean): boolean {
       const init_log = last_log
@@ -170,6 +176,10 @@ export function option(opts: Partial<typeof default_options>): typeof default_op
   return {...default_options, ...opts}
 }
 
+export const expectFailure = option({expectFailure: true})
+export const verbose = option({verbose: true})
+export const random_seed = option({seed: undefined})
+
 export function QuickCheck<A>(
   g: Gen<A>,
   prop: (a: A, p: Property) => boolean,
@@ -192,7 +202,7 @@ export function QuickCheck<A>(
   for (let tests = 0; tests < options.tests; ++tests) {
     let t0
     try {
-      t0 = g.sampleWithShrinks(tests % 100, tests + (options.seed || 0))
+      t0 = g.sampleWithShrinks(tests % 100, options.seed === undefined ? undefined : tests + options.seed)
     } catch (exception) {
       return ret({
         ...not_ok,
@@ -205,7 +215,8 @@ export function QuickCheck<A>(
     let current: A | undefined = undefined
     const t = t0.map((counterexample, shrinks) => ({counterexample, shrinks}))
     let failtree: typeof t | undefined
-    const prop_ = (a: typeof t.top) => p.round(() => (current = a.counterexample, !prop(a.counterexample, p.api)))
+    const prop_ = (a: typeof t.top) =>
+      p.round(() => ((current = a.counterexample), !prop(a.counterexample, p.api)))
     try {
       failtree = t.left_first_search(prop_, options.maxShrinks)
     } catch (exception) {
@@ -257,6 +268,6 @@ export function tape_adapter(
   prop: (a: A, p: Property) => boolean,
   options?: typeof default_options
 ) => void {
-  return (name, g, prop, options) => test(name, t => (t.true(QuickCheckStdout(g, prop, options)), t.end()))
+  return (name, g, prop, options) =>
+    test(name, t => (t.true(QuickCheckStdout(g, prop, options)), t.end()))
 }
-
