@@ -64,7 +64,7 @@ export class Tree<A> {
   /** distribute array fairly */
   static dist_array<A>(trees: Tree<A>[]): Tree<A[]> {
     const length = trees.length
-    return Tree.dist(trees).map(t => Array.from({...t, length}))
+    return Tree.dist(trees as any).map(t => Array.from({...t, length}))
   }
 
   force(depth: number = -1): StrictTree<A> {

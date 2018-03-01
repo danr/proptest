@@ -6,6 +6,7 @@
         "strict": true,
         "lib": ["es6", "dom"],
         "target": "es3",
+        "declaration": true,
         "noEmitOnError": true
     },
     "include": [

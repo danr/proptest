@@ -28,11 +28,7 @@ export function flatten<X>(xss: X[][]): X[] {
 }
 
 export function range(to: number) {
-  const out = []
-  for (let i = 0; i < to; ++i) {
-    out.push(i)
-  }
-  return out
+  return fromTo(0, to)
 }
 
 export function fromTo(begin: number, end: number) {
@@ -75,11 +71,51 @@ export function record_map<K extends string, A, B>(
   return out
 }
 
-export function record_filter<A>(
-  x: Record<string, A>,
-  k: (a: A, id: string) => boolean
-): Record<string, A> {
-  const out = {} as Record<string, A>
-  record_forEach(x, (a, id) => k(a, id) && (out[id] = a))
-  return out
+export function deepEquals(x: any, y: any): boolean {
+  if (Array.isArray(x) && Array.isArray(y)) {
+    return x.length == y.length && x.every((e, i) => deepEquals(e, y[i]))
+  } else if (typeof x === 'object' && typeof y === 'object') {
+    if (x === null) {
+      return y === null
+    }
+    const xk = Object.keys(x).sort()
+    const yk = Object.keys(x).sort()
+    return deepEquals(xk, yk) && xk.every(k => deepEquals(x[k], y[k]))
+  } else if (typeof x === 'boolean' && typeof y === 'boolean') {
+    return x === y
+  } else if (typeof x === 'number' && typeof y === 'number') {
+    return x === y
+  } else if (typeof x === 'string' && typeof y === 'string') {
+    return x === y
+  } else if (typeof x === 'undefined' && typeof y === 'undefined') {
+    return x === y
+  } else {
+    return false
+  }
 }
+
+export function size(x: any): number {
+  if (Array.isArray(x)) {
+    return x.reduce((p, n) => p + size(n), 1)
+  } else if (typeof x === 'object') {
+    if (x === null) {
+      return 1
+    }
+    return size(Object.keys(x).map(k => x[k]))
+  } else {
+    return 1
+  }
+}
+
+const leftpad = (i: number, s: string) =>
+  range(i - s.length)
+    .map(_ => ' ')
+    .join('') + s
+
+export const pct = (i: number) => leftpad(3, '' + Math.round(i)) + '%'
+
+export function succ(x: Record<string, number>, s: string) {
+  x[s] = (x[s] || (x[s] = 0)) + 1
+}
+
+export const serialize = (s: any) => (typeof s == 'string' ? s : JSON.stringify(s))

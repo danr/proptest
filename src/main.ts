@@ -23,27 +23,20 @@ export type TestResult<A> = TestDetails &
     | {ok: false; reason: 'exception'; exception: any; when: 'generating' | 'evaluating'}
     | {ok: false; reason: 'unexpected success'})
 
-const leftpad = (i: number, s: string) =>
-  Utils.range(i - s.length)
-    .map(_ => ' ')
-    .join('') + s
-
-const pct = (i: number) => leftpad(3, '' + Math.round(i)) + '%'
-
 export function PrintTestDetails(details: TestDetails) {
   details.last_log.forEach(objs => console.log(...objs))
 
   Utils.record_traverse(details.stamps, (occs, stamp) => ({occs, stamp}))
     .sort((x, y) => y.occs - x.occs)
-    .map(({occs, stamp}) => console.log(pct(100 * occs / details.tests), stamp))
+    .map(({occs, stamp}) => console.log(Utils.pct(100 * occs / details.tests), stamp))
 
   Utils.record_forEach(details.covers, (data, label) => {
     const expanded = expand_cover_data(data)
-    console.log(pct(expanded.pct), '/' + pct(data.req), ' ', label)
+    console.log(Utils.pct(expanded.pct), '/' + Utils.pct(data.req), ' ', label)
   })
 }
 
-export function PrintTestResult(result: TestResult<any>, verbose: boolean=false) {
+export function PrintTestResult(result: TestResult<any>, verbose: boolean = false) {
   if (result.ok) {
     if (result.expectedFailure) {
       console.log(`Ok, failing as expected:`)
@@ -80,18 +73,12 @@ export function PrintTestResult(result: TestResult<any>, verbose: boolean=false)
   }
 }
 
-interface Property {
+export interface Property {
   cover(pred: boolean, required_percentage: number, label: string): void
   fail(msg: any): void
   label(stamp: string | any): void
   log(...msg: any[]): void
 }
-
-function succ(x: Record<string, number>, s: string) {
-  x[s] = (x[s] || (x[s] = 0)) + 1
-}
-
-const serialize = (s: any) => (typeof s == 'string' ? s : JSON.stringify(s))
 
 function Property() {
   let last_log: any[][] = []
@@ -109,7 +96,7 @@ function Property() {
         last_log.push(msg)
       },
       label(stamp) {
-        last_stamps[serialize(stamp)] = true
+        last_stamps[Utils.serialize(stamp)] = true
       },
       cover(pred, req, label) {
         const req0 = cover_req[label]
@@ -122,9 +109,9 @@ function Property() {
         last_cover[label] = true
         cover_req[label] = req
         if (pred) {
-          succ(cover_hit, label)
+          Utils.succ(cover_hit, label)
         } else {
-          succ(cover_miss, label)
+          Utils.succ(cover_miss, label)
         }
       },
       fail(msg) {
@@ -136,7 +123,7 @@ function Property() {
       last_stamps = {}
       last_cover = {}
       const res = f()
-      Utils.record_forEach(last_stamps, (b, stamp) => b && succ(stamps, stamp))
+      Utils.record_forEach(last_stamps, (b, stamp) => b && Utils.succ(stamps, stamp))
       return res
     },
     test_details(tests: number): TestDetails {
@@ -159,34 +146,11 @@ export const default_options = {
   maxShrinks: 1000,
   seed: 43 as number | undefined,
   expectFailure: false,
-  verbose: false
+  verbose: false,
 }
 
 export function option(opts: Partial<typeof default_options>): typeof default_options {
   return {...default_options, ...opts}
-}
-
-export function qc<A>(
-  g: Gen<A>,
-  prop: (a: A, p: Property) => boolean,
-  options = default_options
-): boolean {
-  const res = QuickCheck(g, prop, options)
-  if (!res.ok) {
-    PrintTestResult(res)
-  }
-  return res.ok
-}
-
-type Tape = (name: string, cb: (t: {true(x: any): void, end(): void}) => void) => void
-
-export function tape_adapter(test: Tape): <A>(
-  name: string,
-  g: Gen<A>,
-  prop: (a: A, p: Property) => boolean,
-  options?: typeof default_options
-) => void {
-  return (name, g, prop, options) => test(name, t => (t.true(qc(g, prop, options)), t.end()))
 }
 
 export function QuickCheck<A>(
@@ -195,10 +159,12 @@ export function QuickCheck<A>(
   options = default_options
 ): TestResult<A> {
   const p = Property()
+  const not_ok = {ok: false as false}
   function ret(res: TestResult<A>): TestResult<A> {
     if (options.expectFailure) {
       if (res.ok) {
-        return {...res, ok: false, reason: 'unexpected success'}
+        const {expectedFailure, ...rest} = res
+        return {...rest, ...not_ok, reason: 'unexpected success'}
       } else {
         return {...res, ok: true, expectedFailure: res}
       }
@@ -209,10 +175,10 @@ export function QuickCheck<A>(
   for (let tests = 0; tests < options.tests; ++tests) {
     let t0
     try {
-      t0 = g.sampleWithShrinks(tests % 100, options.seed)
+      t0 = g.sampleWithShrinks(tests % 100, tests + (options.seed || 0))
     } catch (exception) {
       return ret({
-        ok: false,
+        ...not_ok,
         reason: 'exception',
         exception,
         when: 'generating',
@@ -226,7 +192,7 @@ export function QuickCheck<A>(
       failtree = t.left_first_search(prop_, options.maxShrinks)
     } catch (exception) {
       return ret({
-        ok: false,
+        ...not_ok,
         reason: 'exception',
         exception,
         when: 'evaluating',
@@ -234,7 +200,7 @@ export function QuickCheck<A>(
       })
     }
     if (failtree) {
-      return ret({ok: false, reason: 'counterexample', ...failtree.top, ...p.test_details(tests)})
+      return ret({...not_ok, reason: 'counterexample', ...failtree.top, ...p.test_details(tests)})
     }
   }
   const test_details = p.test_details(options.tests)
@@ -244,66 +210,34 @@ export function QuickCheck<A>(
   }))) {
     const expanded = expand_cover_data(data)
     if (expanded.pct < data.req) {
-      return ret({ok: false, reason: 'insufficient coverage', label, ...test_details})
+      return ret({...not_ok, reason: 'insufficient coverage', label, ...test_details})
     }
   }
   return ret({ok: true, ...test_details})
 }
 
-/*
-const [tree, pure] = [Tree.tree$, Tree.pure]
-
-declare var require: Function
-const pp = require('json-stringify-pretty-compact') as (s: any) => string
-const log = (...s: any[]) => {
-  console.dir(s, {depth: null, colors: true})
+export function QuickCheckStdout<A>(
+  g: Gen<A>,
+  prop: (a: A, p: Property) => boolean,
+  options = default_options
+): boolean {
+  const res = QuickCheck(g, prop, options)
+  if (!res.ok) {
+    PrintTestResult(res)
+  }
+  return res.ok
 }
 
-log(
-  QuickCheck(Gen.record({a: Gen.range(0, 100000), b: Gen.range(0, 100000)}),
-    ({a, b}) => a * b < 1814 || a < b // tricky
-  )
-)
+export type Tape = (name: string, cb: (t: {true(x: any): void; end(): void}) => void) => void
 
-log(
-  QuickCheck(Gen.record({a: Gen.range(0, 10000), b: Gen.range(0, 10000)}),
-    ({a, b}) => a * b < 1814 || a < b
-  )
-)
+export function tape_adapter(
+  test: Tape
+): <A>(
+  name: string,
+  g: Gen<A>,
+  prop: (a: A, p: Property) => boolean,
+  options?: typeof default_options
+) => void {
+  return (name, g, prop, options) => test(name, t => (t.true(QuickCheckStdout(g, prop, options)), t.end()))
+}
 
-log(
-  QuickCheck(Gen.record({a: Gen.range(0, 1000), b: Gen.range(0, 1000)}),
-    ({a, b}, p) => (p.label('a even', a % 2 == 0), a * b < 1814 || a < b)
-  )
-)
-
-log(
-  QuickCheck(replicate(10, Gen.range(0, 1250)), xs => {
-    const sum = xs.reduce((a, b) => a + b, 0)
-    // log({xs, sum})
-    return ret(sum < 9000)
-  })
-)
-
-log(
-  QuickCheck(Gen.range(0, 20).then(i => replicate(i, Gen.range(0, 1250))), (xs, p) => {
-    const sum = xs.reduce((a, b) => a + b, 0)
-    p.label(sum)
-    p.label(xs)
-    p.cover(xs.length > 10, 50, 'non-trivial')
-    // log({xs, sum})
-    return ret(sum < 9000)
-  })
-)
-
-log(Tree.dist({a: shrink_number(4), b: shrink_number(2), c: shrink_number(1)}).force(2))
-log(Tree.dist_array([shrink_number(4), shrink_number(2), shrink_number(1)]).force(2))
-log(
-  shrink_number(4)
-    .fair_pair(shrink_number(2))
-    .force(2)
-)
-log(shrink_number(-18.2, 8.1).force(1))
-log(shrink_number(2.5).force(2))
-log({a: 1}.toString())
-*/

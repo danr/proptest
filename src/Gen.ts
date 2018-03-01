@@ -1,6 +1,5 @@
 import * as Utils from './Utils'
 import {Tree} from './Tree'
-import {RandomSeed} from 'random-seed'
 import * as Random from 'random-js'
 
 const resolution = 0.01
@@ -51,20 +50,20 @@ export class Gen<A> {
     return new Gen(() => Tree.pure(a))
   }
   map<B>(f: (a: A) => B): Gen<B> {
-    const self = this
-    return new Gen(env => self.gen(env).map(f))
+    return new Gen(env => this.gen(env).map(f))
   }
   then<B>(f: (a: A) => Gen<B>): Gen<B> {
-    const self = this
     return new Gen(env => {
       // could distribute size over the two arms here
-      const ta = self.gen(env)
-      return ta.then(a => f(a).gen(env))
+      const ta = this.gen(env)
+      return ta.then(a => {
+        const fa = f(a)
+        return fa.gen(env)
+      })
     })
   }
   with_tree<B>(f: (ta: Tree<A>) => Tree<B>): Gen<B> {
-    const self = this
-    return new Gen(env => f(self.gen(env)))
+    return new Gen(env => f(this.gen(env)))
   }
   private static trees<A, R>(gs: Gen<A>[], f: (ts: Tree<A>[]) => Tree<R>): Gen<R> {
     return new Gen(env => f(gs.map(g => g.gen(env))))
@@ -103,7 +102,7 @@ export class Gen<A> {
 
   /** hi exclusive */
   static range(lo: number, hi: number): Gen<number> {
-    return Gen._range(lo, hi, (rng, lo, hi) => rng.integer(lo, hi + 1))
+    return Gen._range(lo, hi, (rng, lo, hi) => rng.integer(lo, hi - 1))
   }
 
   /** hi exclusive */
@@ -118,14 +117,19 @@ export class Gen<A> {
     random: (rng: Random, lo: number, hi: number) => number
   ): Gen<number> {
     const w0 = hi - lo
+    if (hi === undefined || lo === undefined) {
+      throw 'Range bounds must be proper numbers:' + {hi, lo}
+    }
     if (w0 < 0) {
       return Gen._range(lo, hi, random).map(x => hi - x + lo)
     } else if (w0 == 0) {
       throw 'Gen.range of zero width'
     } else {
       return new Gen(env => {
-        const w = Math.max(1, Math.min(w0, Math.ceil(w0 * env.size / 100.0)))
-        return shrink_number(random(env.rng, lo, hi), lo)
+        // const w = Math.max(1, Math.min(w0, Math.ceil(w0 * env.size / 100.0)))
+        const w = hi - lo
+        const t = shrink_number(random(env.rng, lo, lo + w), lo)
+        return t
       })
     }
   }
@@ -133,10 +137,6 @@ export class Gen<A> {
   /** hi inclusive */
   static char_range(lo: string, hi: string): Gen<string> {
     return Gen.range(lo.charCodeAt(0), hi.charCodeAt(0)).map(i => String.fromCharCode(i))
-  }
-
-  static size(): Gen<number> {
-    return new Gen(env => shrink_number(env.size, 0))
   }
 
   static choose<A>(xs: A[]): Gen<A> {
@@ -187,27 +187,23 @@ export class Gen<A> {
     return g.replicate(n)
   }
 
-  resize(op: (size: number) => number): Gen<A> {
-    return new Gen(env => this.gen({...env, size: op(env.size)}))
-  }
   replace_shrinks(f: (forest: Tree<A>[]) => Tree<A>[]): Gen<A> {
     return new Gen(env => {
       const {top, forest} = this.gen(env)
       return new Tree(top, () => f(forest()))
     })
   }
-  sample(n: number = 10, seed?: number): A[] {
-    return this.replicate(n).gen({rng: Gen._rng(seed), size: 100}).top
+  sample(size = 10, seed?: number): A {
+    return this.sampleWithShrinks(size, seed).top
   }
-  sampleWithShrinks(size = 100, seed?: number): Tree<A> {
+  sampleWithShrinks(size = 10, seed?: number): Tree<A> {
     return this.gen({rng: Gen._rng(seed), size})
   }
 
   private static _rng(seed?: number): Random {
     const mt0 = Random.engines.mt19937()
-    const mt = seed && mt0.seed(seed) || mt0.autoSeed()
+    const mt = (seed && mt0.seed(seed)) || mt0.autoSeed()
     return new Random(mt)
-
   }
 
   static bool: Gen<boolean> = Gen.choose([false, true])
@@ -233,12 +229,10 @@ export class Gen<A> {
   }
 
   array(): Gen<A[]> {
-    const self = this
-    return Gen.nat.then(i => self.replicate(i))
+    return Gen.nat.then(i => this.replicate(i))
   }
   nearray(): Gen<A[]> {
-    const self = this
-    return Gen.pos.then(i => self.replicate(i))
+    return Gen.pos.then(i => this.replicate(i))
   }
 
   static array<A>(g: Gen<A>): Gen<A[]> {
@@ -246,5 +240,12 @@ export class Gen<A> {
   }
   static nearray<A>(g: Gen<A>): Gen<A[]> {
     return g.nearray()
+  }
+
+  static size(): Gen<number> {
+    return new Gen(env => shrink_number(env.size, 0))
+  }
+  resize(op: (size: number) => number): Gen<A> {
+    return new Gen(env => this.gen({...env, size: Math.max(1, op(env.size))}))
   }
 }

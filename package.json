@@ -30,8 +30,6 @@
     "@types/node": "^9.4.0",
     "@types/random-js": "^1.0.30",
     "@types/tape": "^4.2.31",
-    "parcel-bundler": "1.5.1",
-    "parcel-plugin-typescript": "^0.5.3",
     "prettier": "^1.10.2",
     "tap-diff": "^0.1.1",
     "tape": "^4.9.0",
@@ -39,8 +37,9 @@
     "typescript": "^2.7.1"
   },
   "scripts": {
-    "build": "parcel build src/main.ts",
-    "prettier": "prettier --list-different --write \"{src,test}/**/*.ts\""
+    "build": "tsc",
+    "prettier": "prettier --list-different --write \"{src,test}/**/*.ts\"",
+    "test": "ts-node node_modules/tape/bin/tape test/*.ts | tap-diff"
   },
   "prettier": {
     "printWidth": 100,
