@@ -8,7 +8,7 @@ This means that you can map and chain generators and get correct
 shrinking functions "for free". This is a deviation from the original
 Haskell library but works well in languages without typeclasses.
 (The same approach is taken in other implementations
-such as Hedgehog for Haskell, Hypothesis for Python and EasyCheck for Clojure)
+such as Hedgehog for Haskell, Hypothesis for Python and test.check for Clojure)
 
 The API exports a function which essentially returns a true if the property
 passed or a counterexample if it did not.
