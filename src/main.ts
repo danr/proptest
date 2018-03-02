@@ -29,13 +29,17 @@ export type TestResult<A> = TestDetails &
       }
     | {ok: false; reason: 'unexpected success'})
 
-export function PrintTestDetails(details: TestDetails) {
-  details.last_log.forEach(objs => console.log(...objs))
-
+export function PrintStamps(details: TestDetails) {
   Utils.record_traverse(details.stamps, (occs, stamp) => ({occs, stamp}))
     .sort((x, y) => y.occs - x.occs)
     .map(({occs, stamp}) => console.log(Utils.pct(100 * occs / details.tests), stamp))
+}
 
+export function PrintLastLog(details: TestDetails) {
+  details.last_log.forEach(objs => console.log(...objs))
+}
+
+export function PrintCovers(details: TestDetails) {
   Utils.record_forEach(details.covers, (data, label) => {
     const expanded = expand_cover_data(data)
     console.log(Utils.pct(expanded.pct), '/' + Utils.pct(data.req), ' ', label)
@@ -49,24 +53,27 @@ export function PrintTestResult(result: TestResult<any>, verbose: boolean = fals
       PrintTestResult(result.expectedFailure, verbose)
       console.log(`(expected failure)`)
     } else {
-      verbose && PrintTestDetails(result)
+      verbose && PrintCovers(result)
+      PrintStamps(result)
       console.log(`Ok, passed ${result.tests} tests.`)
     }
   } else {
-    PrintTestDetails(result)
+    verbose && PrintStamps(result)
+    verbose && PrintCovers(result)
+    PrintLastLog(result)
     switch (result.reason) {
       case 'counterexample':
         console.log(
           `Counterexample found after ${result.tests} tests and ${result.shrinks} shrinks:`
         )
-        console.log(result.counterexample)
+        console.log(Utils.show(result.counterexample))
         return
       case 'exception':
         console.log(`Exception when ${result.when} after ${result.tests}:`)
         console.log(result.exception)
         if (result.counterexample) {
           console.log(`Exception occured with this input:`)
-          console.log(result.counterexample)
+          console.log(Utils.show(result.counterexample))
         }
         return
       case 'insufficient coverage':
@@ -89,6 +96,7 @@ export interface Property {
   fail(msg: any): void
   label(stamp: string | any): void
   log(...msg: any[]): void
+  tap<A>(x: A, msg?: string): A
 }
 
 function Property() {
@@ -103,6 +111,11 @@ function Property() {
 
   return {
     api: {
+      tap(x, msg) {
+        msg && last_log.push([msg, Utils.show(x)])
+        msg || last_log.push([Utils.show(x)])
+        return x
+      },
       log(...msg) {
         last_log.push(msg)
       },
@@ -132,7 +145,13 @@ function Property() {
         const e = Utils.deepEquals(lhs, rhs)
         if (!e) {
           this.log('Not deeply equal:')
-          this.log(lhs, '!=', rhs)
+          const a = Utils.show(lhs)
+          const b = Utils.show(rhs)
+          if (-1 != a.indexOf('\n') || -1 != b.indexOf('\n')) {
+            this.log(a + '\n!=\n' + b)
+          } else {
+            this.log(a + ' != ' + b)
+          }
         }
         return e
       },
@@ -256,7 +275,7 @@ export function QuickCheckStdout<A>(
 ): boolean {
   const res = QuickCheck(g, prop, options)
   if (!res.ok) {
-    PrintTestResult(res)
+    PrintTestResult(res, options.verbose)
   }
   return res.ok
 }

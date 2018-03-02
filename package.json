@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "author": "Dan Rosén",
   "description": "Property based testing for TypeScript",
+  "main": "dist/src/main.js",
+  "types": "dist/src/main.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/danr/ts-quickcheck.git"

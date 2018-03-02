@@ -118,3 +118,12 @@ export function succ(x: Record<string, number>, s: string): number {
 }
 
 export const serialize = (s: any) => (typeof s == 'string' ? s : JSON.stringify(s))
+
+declare const require: (file: string) => any
+const stringify = require('json-stringify-pretty-compact') as (s: any) => string
+
+/** Show a JSON object with indentation */
+export function show(x: any): string {
+  return stringify(x)
+  // return JSON.stringify(x, undefined, 2)
+}

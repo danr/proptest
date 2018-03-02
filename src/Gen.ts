@@ -71,6 +71,9 @@ export class Gen<A> {
   static sequence<A>(gs: Gen<A>[]): Gen<A[]> {
     return Gen.trees(gs, Tree.dist_array)
   }
+  static concat(gs: Gen<string>[], sep = ''): Gen<string> {
+    return Gen.sequence(gs).map(xs => xs.join(sep))
+  }
   static record<T extends Record<string, any>>(r: {[K in keyof T]: Gen<T[K]>}): Gen<T> {
     const keys = Object.keys(r)
     const ts = keys.map(k => r[k])
