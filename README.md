@@ -19,6 +19,7 @@ quirks and the api, but you can test it by linking it to your
 own library:
 
 ```
+yarn run tsc
 yarn link
 cd ../my-cool-project
 yarn link ts-quickcheck # viola
