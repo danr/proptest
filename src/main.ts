@@ -316,7 +316,7 @@ export const forall = search_then((res, options) => {
   if (!res.ok) {
     const w = Write(options.verbose)
     w.SearchResult(res)
-    throw w.messages.map(xs => xs.join(' ')).join('\n')
+    throw new Error(w.messages.map(xs => xs.join(' ')).join('\n'))
   }
 })
 
