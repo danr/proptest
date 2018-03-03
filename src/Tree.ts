@@ -5,8 +5,6 @@ export interface StrictTree<A> {
   readonly forest: StrictTree<A>[]
 }
 
-let then_count = 0
-
 export class Tree<A> {
   constructor(readonly top: A, readonly forest: () => Tree<A>[]) {}
   static of<A>(a: A): Tree<A> {
@@ -37,12 +35,8 @@ export class Tree<A> {
     // used for shrinking
     // returns the last but leftmost subtree without any backtracking where the property is true
     function dfs(tree: Tree<A>, fuel: number): {tree: Tree<A>, fuel: number} | undefined  {
-      then_count = 0
       const forest = tree.forest()
-      const count = then_count
-      const N = forest.length
       for (let i = 0; i < forest.length; i++) {
-        // console.log({fuel, N, count})
         if (fuel == 0) {
           break
         }
