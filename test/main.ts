@@ -55,7 +55,7 @@ const GTree = <A>(g: Gen<A>) =>
   Gen.size().then(s0 => {
     function go(s: number): Gen<Tree<A>> {
       return Gen.frequency([
-        [1, g.map(Tree.pure)],
+        [1, g.map(Tree.of)],
         [
           s,
           g.then(top =>
@@ -108,7 +108,7 @@ qc('traverse homomorphic with no overlap', Gen.nat.pojo().replicate(2), ([a, b],
 
 qc('tree join left', GTree(Gen.nat), t =>
   Utils.deepEquals(
-    Tree.pure(t)
+    Tree.of(t)
       .then(t => t)
       .force(),
     t.force()
@@ -116,24 +116,24 @@ qc('tree join left', GTree(Gen.nat), t =>
 )
 
 qc('tree join right', GTree(Gen.nat), t =>
-  Utils.deepEquals(t.then(j => Tree.pure(j)).force(), t.force())
+  Utils.deepEquals(t.then(j => Tree.of(j)).force(), t.force())
 )
 
 qc('gen join left', Gen.record({i: Gen.nat, seed: Gen.nat, size: Gen.size()}), d =>
   Utils.deepEquals(
-    Gen.pure(Gen.pure(d.i))
+    Gen.of(Gen.of(d.i))
       .then(g => g)
       .sample(d.size, d.seed),
-    Gen.pure(d.i).sample(d.size, d.seed)
+    Gen.of(d.i).sample(d.size, d.seed)
   )
 )
 
 qc('gen join right', Gen.record({i: Gen.nat, seed: Gen.nat, size: Gen.size()}), d =>
   Utils.deepEquals(
-    Gen.pure(d.i)
-      .then(j => Gen.pure(j))
+    Gen.of(d.i)
+      .then(j => Gen.of(j))
       .sample(d.size, d.seed),
-    Gen.pure(d.i).sample(d.size, d.seed)
+    Gen.of(d.i).sample(d.size, d.seed)
   )
 )
 
@@ -177,7 +177,7 @@ test('unexpected success', t => {
 })
 
 test('exception evaluating', t => {
-  const res = QuickCheck(Gen.pure({}), _ => {
+  const res = QuickCheck(Gen.of({}), _ => {
     throw 'OOPS'
   })
   t.deepEquals(res.ok, false)
@@ -188,7 +188,7 @@ test('exception evaluating', t => {
 
 test('exception generating', t => {
   const res = QuickCheck(
-    Gen.pure({}).then(_ => {
+    Gen.of({}).then(_ => {
       throw 'Oops'
     }),
     _ => true
