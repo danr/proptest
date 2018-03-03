@@ -97,7 +97,7 @@ export function deepEquals(x: any, y: any): boolean {
 }
 
 export function size(x: any): number {
-  if (typeof x !== 'object') {
+  if (x === null || typeof x !== 'object') {
     return 1
   } else if (Array.isArray(x)) {
     return x.reduce((p, n) => p + size(n), 1)
