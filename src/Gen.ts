@@ -64,11 +64,11 @@ export class Gen<A> {
   map<B>(f: (a: A) => B): Gen<B> {
     return new Gen(env => this.gen(env).map(f))
   }
-  then<B>(f: (a: A) => Gen<B>): Gen<B> {
+  chain<B>(f: (a: A) => Gen<B>): Gen<B> {
     return new Gen(env => {
       // could distribute size over the two arms here
       const ta = this.gen(env)
-      return ta.then(a => {
+      return ta.chain(a => {
         const fa = f(a)
         return fa.gen(env)
       })
@@ -167,7 +167,7 @@ export class Gen<A> {
     }
   }
   static oneof<A>(gs: Gen<A>[]): Gen<A> {
-    return Gen.choose(gs).then(g => g)
+    return Gen.choose(gs).chain(g => g)
   }
   static frequency<A>(table: [number, Gen<A>][]): Gen<A> {
     return Gen.lazy_frequency(table.map(([i, g]) => [i, () => g] as [number, () => Gen<A>]))
@@ -179,7 +179,7 @@ export class Gen<A> {
         sum += f
       }
     })
-    return Gen.between(0, sum).then(i => {
+    return Gen.between(0, sum).chain(i => {
       for (const [f, g] of table) {
         if (f > 0) {
           i -= f
@@ -225,7 +225,7 @@ export class Gen<A> {
   static bool: Gen<boolean> = Gen.choose([false, true])
 
   static bin: Gen<number> = Gen.range(2)
-  static nat: Gen<number> = Gen.size().then(size => Gen.range(size + 1))
+  static nat: Gen<number> = Gen.size().chain(size => Gen.range(size + 1))
   static int: Gen<number> = Gen.oneof([Gen.nat, Gen.nat.map(x => -x)])
   static pos: Gen<number> = Gen.nat.map(x => x + 1)
   static neg: Gen<number> = Gen.nat.map(x => -x - 1)
@@ -256,10 +256,10 @@ export class Gen<A> {
   }
 
   array(): Gen<A[]> {
-    return Gen.nat.then(i => this.replicate(i))
+    return Gen.nat.chain(i => this.replicate(i))
   }
   nearray(): Gen<A[]> {
-    return Gen.pos.then(i => this.replicate(i))
+    return Gen.pos.chain(i => this.replicate(i))
   }
 
   static array<A>(g: Gen<A>): Gen<A[]> {
