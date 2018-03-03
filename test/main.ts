@@ -1,4 +1,12 @@
-import {Gen, Tree, tape_adapter, expectFailure, random_seed, QuickCheck} from '../src/main'
+import {
+  Gen,
+  Tree,
+  tape_adapter,
+  expectFailure,
+  random_seed,
+  QuickCheck,
+} from '../src/main'
+import * as QC from '../src/main'
 import * as Utils from '../src/Utils'
 import * as main from '../src/main'
 import * as test from 'tape'
@@ -52,24 +60,58 @@ test('deepEquals', t => {
 })
 
 const GTree = <A>(g: Gen<A>) =>
-  Gen.size().then(s0 => {
-    function go(s: number): Gen<Tree<A>> {
-      return Gen.frequency([
-        [1, g.map(Tree.pure)],
-        [
-          s,
-          g.then(top =>
-            Gen.between(2, 5).then(n =>
-              go(Math.max(0, Math.round(s / n)))
-                .replicate(n)
-                .map(tree => new Tree(top, () => tree))
-            )
-          ),
-        ],
-      ])
-    }
-    return go(s0)
-  })
+  Gen.letrec1(g.map(Tree.pure), (tree, size) =>
+    g.then(top =>
+      Gen.between(2, 5).then(n =>
+        tree(size / n)
+          .replicate(n)
+          .map(forest => new Tree(top, () => forest))
+      )
+    )
+  )
+
+export type List<A> = null | { hd: A, tl : List<A>}
+
+const list = Gen.letrec1<List<number>>(
+  Gen.pure(null),
+  more => Gen.record({hd: Gen.bin, tl: more()})
+)
+
+qc(
+  'list sizes',
+  list,
+  (xs, p) => console.log(Utils.show(xs)) || p.label(Utils.size(xs)) || true
+  , undefined,
+//  t => t.only
+)
+
+
+const list2 = Gen.pure(null as List<number>).letrec1(
+  more => Gen.record({hd: Gen.bin, tl: more()})
+)
+
+export type Even<A, B> = null | { hd: A, tl : Odd<A, B>}
+export type Odd<A, B> = null | { hd: B, tl : Even<A, B> }
+
+const eo = <A, B>(a: Gen<A>, b: Gen<B>) => Gen.letrec<{Even: Even<A, B>, Odd: Odd<A, B>}>({
+  Even: Gen.pure(null),
+  Odd: Gen.pure(null),
+}, {
+  Even: (rec, s) =>  Gen.record({hd: a, tl: rec.Odd()}),
+  Odd:  (rec, s) =>  Gen.record({hd: b, tl: rec.Even()}),
+})
+
+qc(
+  'eo sizes',
+  eo(Gen.bin, Gen.char('ab')).map(r => r.Even),
+  (e, p) => console.log(Utils.show(e)) || p.label(Utils.size(e)) || true
+  ,
+  QC.option({tests: 12}),
+   t => t.only
+)
+
+
+
 
 qc(
   'lower-upper record',

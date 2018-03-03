@@ -288,8 +288,10 @@ export function tape_adapter(
   name: string,
   g: Gen<A>,
   prop: (a: A, p: Property) => boolean,
-  options?: typeof default_options
+  options?: typeof default_options,
+  pretest?: (tape: Tape & {only: Tape, skip: Tape}) => Tape
 ) => void {
-  return (name, g, prop, options) =>
-    test(name, t => (t.true(QuickCheckStdout(g, prop, options)), t.end()))
+  return (name, g, prop, options, pretest) =>
+    (pretest ? pretest(test as any) : test)(name, t => (t.true(QuickCheckStdout(g, prop, options)), t.end()))
+
 }

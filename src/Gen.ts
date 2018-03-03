@@ -277,4 +277,56 @@ export class Gen<A> {
       return ys
     })
   }
+
+  static letrec1<A>(
+    base: Gen<A>,
+    step: (ih: (size?: number) => Gen<A>, size: number) => Gen<A>
+  ): Gen<A> {
+    return Gen.letrec<{one: A}>({one: base}, {one: (ih, s) => step(ih.one, s)}).map(
+      r => r.one
+    )
+  }
+
+  letrec1(
+    step: (ih: (size?: number) => Gen<A>, size: number) => Gen<A>
+  ): Gen<A> {
+    return Gen.letrec1(this, step)
+  }
+
+  static letrec<R extends Record<string, any>>(
+    bases: {[K in keyof R]: Gen<R[K]>},
+    steps: {
+      [K in keyof R]: (
+        ih: {[K in keyof R]: (size?: number) => Gen<R[K]>},
+        size: number
+      ) => Gen<R[K]>
+    }
+  ): Gen<R> {
+    function go(size0: number): Gen<R> {
+      const keys = Object.keys(bases) as (keyof R)[]
+      const ih = Utils.record_create(
+        keys.map(k => ({
+          k,
+          v: (size: number | undefined): Gen<R[keyof R]> => {
+            console.log({k, size, size0})
+            return go(size === undefined ? size0 - 1 : size).map((r: R) => r[k])
+            },
+        }))
+      )
+
+      return Gen.lazy_frequency([
+        [1, () => Gen.record<R>(bases)],
+        [
+          size0,
+          () => {
+            const ics = Utils.record_map(steps, (f: any) => f(ih, size0)) as {
+              [K in keyof R]: Gen<R[K]>
+            }
+            return Gen.record<R>(ics)
+          },
+        ],
+      ])
+    }
+    return Gen.pos.then(go)
+  }
 }
