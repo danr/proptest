@@ -31,10 +31,10 @@ export class Tree<A> {
     return Tree.dist({a: this, b: tb}).map(p => Utils.pair(p.a, p.b))
   }
 
-  left_first_search(p: (a: A) => boolean, fuel = -1): {tree: Tree<A>, fuel: number} | undefined {
+  left_first_search(p: (a: A) => boolean, fuel = -1): {tree: Tree<A>; fuel: number} | undefined {
     // used for shrinking
     // returns the last but leftmost subtree without any backtracking where the property is true
-    function dfs(tree: Tree<A>, fuel: number): {tree: Tree<A>, fuel: number} | undefined  {
+    function dfs(tree: Tree<A>, fuel: number): {tree: Tree<A>; fuel: number} | undefined {
       const forest = tree.forest()
       for (let i = 0; i < forest.length; i++) {
         if (fuel == 0) {
@@ -71,10 +71,11 @@ export class Tree<A> {
     return Tree.dist(trees as any).map(t => Array.from({...t, length}))
   }
 
+  /** debugging function to view the tree evaluated */
   force(depth: number = -1): StrictTree<A> {
     return {
       top: this.top,
-      forest: depth == 0 ? [] : this.forest().map(t => t.force( - 1)),
+      forest: depth == 0 ? [] : this.forest().map(t => t.force(depth - 1)),
     }
   }
 }
