@@ -46,8 +46,8 @@ interface GenEnv {
 
 export class Gen<A> {
   private constructor(private readonly gen: (env: GenEnv) => Tree<A>) {}
-  static pure<A>(a: A): Gen<A> {
-    return new Gen(() => Tree.pure(a))
+  static of<A>(a: A): Gen<A> {
+    return new Gen(() => Tree.of(a))
   }
   map<B>(f: (a: A) => B): Gen<B> {
     return new Gen(env => this.gen(env).map(f))
@@ -178,7 +178,7 @@ export class Gen<A> {
   }
   replicate(n: number): Gen<A[]> {
     if (n <= 0) {
-      return Gen.pure([] as A[])
+      return Gen.of([] as A[])
     } else {
       return this.pair(this.replicate(n - 1)).map(([x, xs]) => [x, ...xs])
     }

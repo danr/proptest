@@ -7,7 +7,7 @@ export interface StrictTree<A> {
 
 export class Tree<A> {
   constructor(readonly top: A, readonly forest: () => Tree<A>[]) {}
-  static pure<A>(a: A): Tree<A> {
+  static of<A>(a: A): Tree<A> {
     return new Tree(a, () => [])
   }
   static tree<A>(top: A, forest: () => Tree<A>[]): Tree<A> {
@@ -17,7 +17,7 @@ export class Tree<A> {
     return new Tree(top, () => forest)
   }
   map<B>(f: (a: A, depth: number) => B): Tree<B> {
-    return this.then((a: A, depth: number) => Tree.pure(f(a, depth)))
+    return this.then((a: A, depth: number) => Tree.of(f(a, depth)))
   }
   then<B>(f: (a: A, depth: number) => Tree<B>, depth = 0): Tree<B> {
     const t = f(this.top, depth)
@@ -25,7 +25,7 @@ export class Tree<A> {
   }
 
   left_first_pair<B>(tb: Tree<B>): Tree<[A, B]> {
-    return this.then(a => tb.then(b => Tree.pure(Utils.pair(a, b))))
+    return this.then(a => tb.then(b => Tree.of(Utils.pair(a, b))))
   }
   fair_pair<B>(tb: Tree<B>): Tree<[A, B]> {
     return Tree.dist({a: this, b: tb}).map(p => Utils.pair(p.a, p.b))
