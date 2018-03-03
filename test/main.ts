@@ -1,4 +1,5 @@
-import {Gen, Tree, tape_adapter, expectFailure, random_seed, QuickCheck} from '../src/main'
+import {Gen, Tree, tape_adapter, expectFailure, random_seed, search} from '../src/main'
+import * as QC from '../src/main'
 import * as Utils from '../src/Utils'
 import * as main from '../src/main'
 import * as test from 'tape'
@@ -112,8 +113,8 @@ qc('tree join left', GTree(Gen.nat), t =>
       .then(t => t)
       .force(),
     t.force()
-  ))
-
+  )
+)
 
 qc('tree join right', GTree(Gen.bin), t =>
   Utils.deepEquals(t.then(j => Tree.of(j)).force(), t.force())
@@ -165,21 +166,21 @@ qc('upper->lower', Gen.upper.map(u => u.toLowerCase()), s => null != s.match(/^[
 qc('char.string', Gen.char('ab').nestring(), s => s.length > 0)
 
 test('unexpected success', t => {
-  const res = QuickCheck(Gen.nat, x => x >= 0, expectFailure)
+  const res = search(Gen.nat, x => x >= 0, expectFailure)
   const reason = res.ok ? '?' : res.reason
   t.deepEquals(reason, 'unexpected success')
   t.end()
 })
 
 test('unexpected success', t => {
-  const res = QuickCheck(Gen.nat, x => x > 0, expectFailure)
+  const res = search(Gen.nat, x => x > 0, expectFailure)
   t.deepEquals(res.ok, true)
   t.true((res as any).expectedFailure)
   t.end()
 })
 
 test('exception evaluating', t => {
-  const res = QuickCheck(Gen.of({}), _ => {
+  const res = search(Gen.of({}), _ => {
     throw 'OOPS'
   })
   t.deepEquals(res.ok, false)
@@ -189,7 +190,7 @@ test('exception evaluating', t => {
 })
 
 test('exception generating', t => {
-  const res = QuickCheck(
+  const res = search(
     Gen.of({}).then(_ => {
       throw 'Oops'
     }),
@@ -202,7 +203,7 @@ test('exception generating', t => {
 })
 
 test('cov', t => {
-  const res = QuickCheck(Gen.nat, (x, p) => {
+  const res = search(Gen.nat, (x, p) => {
     p.cover(x > 10, 75, '>10')
     return x >= 0
   })
@@ -213,6 +214,26 @@ test('cov', t => {
 
 qc('permute', Gen.permute(Utils.range(5)), (xs, p) => {
   return true
+})
+
+test('forall throws on false prop', t => {
+  t.plan(1)
+  t.throws(() => QC.forall(Gen.pos, x => x < 5))
+})
+
+test("forall doesn't throw on true prop", t => {
+  t.plan(1)
+  t.doesNotThrow(() => QC.forall(Gen.pos, x => x > 0))
+})
+
+test('forall exception contains the counterexample', t => {
+  t.plan(2)
+  try {
+    QC.forall(Gen.oneof([Gen.of('apabepa'), Gen.alpha]), x => x != 'apabepa')
+  } catch (e) {
+    t.true(e.match(/^Counterexample found/m))
+    t.true(e.match(/^"apabepa"/m))
+  }
 })
 
 /*

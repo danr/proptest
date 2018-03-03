@@ -3,7 +3,12 @@ import {Tree} from './Tree'
 import {Gen, shrink_number} from './Gen'
 export {Gen, Tree}
 
-export type TestDetails = {covers: Covers; stamps: Stamps; last_log: any[][]; tests: number}
+export type TestDetails = {
+  covers: Covers
+  stamps: Stamps
+  last_log: any[][]
+  tests: number
+}
 export type CoverData = {req: number; hit: number; miss: number}
 export type Covers = Record<string, CoverData>
 export type Stamps = Record<string, number>
@@ -15,9 +20,9 @@ export function expand_cover_data(data: CoverData) {
   return {N, ratio, pct}
 }
 
-export type TestResult<A> = TestDetails &
+export type SearchResult<A> = TestDetails &
   (
-    | {ok: true; expectedFailure?: TestResult<A>}
+    | {ok: true; expectedFailure?: SearchResult<A>}
     | {ok: false; reason: 'counterexample'; counterexample: A; shrinks: number}
     | {ok: false; reason: 'insufficient coverage'; label: string}
     | {
@@ -29,64 +34,75 @@ export type TestResult<A> = TestDetails &
       }
     | {ok: false; reason: 'unexpected success'})
 
-export function PrintStamps(details: TestDetails) {
-  Utils.record_traverse(details.stamps, (occs, stamp) => ({occs, stamp}))
-    .sort((x, y) => y.occs - x.occs)
-    .map(({occs, stamp}) => console.log(Utils.pct(100 * occs / details.tests), stamp))
-}
+export type Log = (...objs: any[]) => void
 
-export function PrintLastLog(details: TestDetails) {
-  details.last_log.forEach(objs => console.log(...objs))
-}
-
-export function PrintCovers(details: TestDetails) {
-  Utils.record_forEach(details.covers, (data, label) => {
-    const expanded = expand_cover_data(data)
-    console.log(Utils.pct(expanded.pct), '/' + Utils.pct(data.req), ' ', label)
-  })
-}
-
-export function PrintTestResult(result: TestResult<any>, verbose: boolean = false) {
-  if (result.ok) {
-    if (result.expectedFailure) {
-      console.log(`Ok, failing as expected:`)
-      PrintTestResult(result.expectedFailure, verbose)
-      console.log(`(expected failure)`)
-    } else {
-      verbose && PrintCovers(result)
-      PrintStamps(result)
-      console.log(`Ok, passed ${result.tests} tests.`)
-    }
-  } else {
-    verbose && PrintStamps(result)
-    verbose && PrintCovers(result)
-    PrintLastLog(result)
-    switch (result.reason) {
-      case 'counterexample':
-        console.log(
-          `Counterexample found after ${result.tests} tests and ${result.shrinks} shrinks:`
-        )
-        console.log(Utils.show(result.counterexample))
-        return
-      case 'exception':
-        console.log(`Exception when ${result.when} after ${result.tests}:`)
-        console.log(result.exception)
-        if (result.counterexample) {
-          console.log(`Exception occured with this input:`)
-          console.log(Utils.show(result.counterexample))
+export function Format(verbose: boolean = false, log: Log) {
+  return {
+    Stamps(details: TestDetails) {
+      Utils.record_traverse(details.stamps, (occs, stamp) => ({occs, stamp}))
+        .sort((x, y) => y.occs - x.occs)
+        .map(({occs, stamp}) => log(Utils.pct(100 * occs / details.tests), stamp))
+    },
+    LastLog(details: TestDetails) {
+      details.last_log.forEach(objs => log(...objs))
+    },
+    Covers(details: TestDetails) {
+      Utils.record_forEach(details.covers, (data, label) => {
+        const expanded = expand_cover_data(data)
+        log(Utils.pct(expanded.pct), '/' + Utils.pct(data.req), ' ', label)
+      })
+    },
+    SearchResult(result: SearchResult<any>) {
+      if (result.ok) {
+        if (result.expectedFailure) {
+          log(`Ok, failing as expected:`)
+          this.SearchResult(result.expectedFailure)
+          log(`(expected failure)`)
+        } else {
+          verbose && this.Covers(result)
+          this.Stamps(result)
+          log(`Ok, passed ${result.tests} tests.`)
         }
-        return
-      case 'insufficient coverage':
-        console.log(`Insufficient coverage for label ${result.label}`)
-        return
+      } else {
+        verbose && this.Stamps(result)
+        verbose && this.Covers(result)
+        this.LastLog(result)
+        switch (result.reason) {
+          case 'counterexample':
+            log(`Counterexample found after ${result.tests} tests and ${result.shrinks} shrinks:`)
+            log(Utils.show(result.counterexample))
+            return
+          case 'exception':
+            log(`Exception when ${result.when} after ${result.tests}:`)
+            log(result.exception)
+            if (result.counterexample) {
+              log(`Exception occured with this input:`)
+              log(Utils.show(result.counterexample))
+            }
+            return
+          case 'insufficient coverage':
+            verbose || this.Covers(result)
+            log(`Insufficient coverage for label ${result.label}`)
+            return
 
-      case 'unexpected success':
-        console.log(`Unexpected success in presence of expectFailure`)
-        return
+          case 'unexpected success':
+            log(`Unexpected success in presence of expectFailure`)
+            return
 
-      default:
-        const _: never = result
-    }
+          default:
+            const _: never = result
+        }
+      }
+    },
+  }
+}
+
+export const Stdout = (verbose: boolean) => Format(verbose, (...msg) => console.log(...msg))
+export const Write = (verbose: boolean) => {
+  const messages: any[][] = []
+  return {
+    ...Format(verbose, (...msg) => messages.push(msg)),
+    messages,
   }
 }
 
@@ -199,14 +215,15 @@ export const expectFailure = option({expectFailure: true})
 export const verbose = option({verbose: true})
 export const random_seed = option({seed: undefined})
 
-export function QuickCheck<A>(
+/** Searches for a counterexample and returns as most information as possible. */
+export function search<A>(
   g: Gen<A>,
   prop: (a: A, p: Property) => boolean,
   options = default_options
-): TestResult<A> {
+): SearchResult<A> {
   const p = Property()
   const not_ok = {ok: false as false}
-  function ret(res: TestResult<A>): TestResult<A> {
+  function ret(res: SearchResult<A>): SearchResult<A> {
     if (options.expectFailure) {
       if (res.ok) {
         const {expectedFailure, ...rest} = res
@@ -252,7 +269,12 @@ export function QuickCheck<A>(
       })
     }
     if (failtree) {
-      return ret({...not_ok, reason: 'counterexample', ...failtree.top, ...p.test_details(tests)})
+      return ret({
+        ...not_ok,
+        reason: 'counterexample',
+        ...failtree.top,
+        ...p.test_details(tests),
+      })
     }
   }
   const test_details = p.test_details(options.tests)
@@ -262,34 +284,64 @@ export function QuickCheck<A>(
   }))) {
     const expanded = expand_cover_data(data)
     if (expanded.pct < data.req) {
-      return ret({...not_ok, reason: 'insufficient coverage', label, ...test_details})
+      return ret({
+        ...not_ok,
+        reason: 'insufficient coverage',
+        label,
+        ...test_details,
+      })
     }
   }
   return ret({ok: true, ...test_details})
 }
 
-export function QuickCheckStdout<A>(
-  g: Gen<A>,
-  prop: (a: A, p: Property) => boolean,
-  options = default_options
-): boolean {
-  const res = QuickCheck(g, prop, options)
-  if (!res.ok) {
-    PrintTestResult(res, options.verbose)
-  }
-  return res.ok
+export function search_then<R>(
+  then: <A>(a: SearchResult<A>, options: typeof default_options) => R
+): <A>(g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: typeof default_options) => R {
+  return (g, prop, options) => then(search(g, prop, options), options || default_options)
 }
 
-export type Tape = (name: string, cb: (t: {true(x: any): void; end(): void}) => void) => void
+/** Searches for a counterexample and prints it on stdout if it is found.
 
+Returns whether a counterexample was found. */
+export const forall_stdout = search_then((res, options) => {
+  if (!res.ok) {
+    Stdout(options.verbose).SearchResult(res)
+  }
+  return res.ok
+})
+
+/** Searches for a counterexample and throws an error if one is found */
+export const forall = search_then((res, options) => {
+  if (!res.ok) {
+    const w = Write(options.verbose)
+    w.SearchResult(res)
+    throw w.messages.map(xs => xs.join(' ')).join('\n')
+  }
+})
+
+export interface TestCase {
+  true(x: any): void
+  end(): void
+}
+
+export interface Tape {
+  (name: string, cb: (t: TestCase) => void): void
+}
+
+/** Adapt tape using forall_stdout */
 export function tape_adapter(
   test: Tape
 ): <A>(
   name: string,
   g: Gen<A>,
   prop: (a: A, p: Property) => boolean,
-  options?: typeof default_options
+  options?: typeof default_options,
+  with_tape?: (tape: Tape & {only(): Tape; skip(): Tape}) => Tape
 ) => void {
-  return (name, g, prop, options) =>
-    test(name, t => (t.true(QuickCheckStdout(g, prop, options)), t.end()))
+  return (name, g, prop, options, with_tape) =>
+    (with_tape ? with_tape(test as any) : test)(
+      name,
+      t => (t.true(forall_stdout(g, prop, options)), t.end())
+    )
 }
