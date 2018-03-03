@@ -201,7 +201,7 @@ function Property() {
 
 export const default_options = {
   tests: 100,
-  maxShrinks: 1000,
+  maxShrinks: 100,
   seed: 43 as number | undefined,
   expectFailure: false,
   verbose: false,
@@ -236,9 +236,9 @@ export function search<A>(
     }
   }
   for (let tests = 0; tests < options.tests; ++tests) {
-    let t0
+    let t: Tree<A>
     try {
-      t0 = g.sampleWithShrinks(
+      t = g.sampleWithShrinks(
         tests % 100,
         options.seed === undefined ? undefined : tests + options.seed
       )
@@ -252,12 +252,20 @@ export function search<A>(
       })
     }
     let current: A | undefined = undefined
-    const t = t0.map((counterexample, shrinks) => ({counterexample, shrinks}))
-    let failtree: typeof t | undefined
-    const prop_ = (a: typeof t.top) =>
-      p.round(() => ((current = a.counterexample), !prop(a.counterexample, p.api)))
+    const prop_ = (a: typeof t.top) => p.round(() => ((current = a), !prop(a, p.api)))
     try {
-      failtree = t.left_first_search(prop_, options.maxShrinks)
+      const failtree = t.left_first_search(prop_, options.maxShrinks)
+      if (failtree) {
+        const shrinks =
+          options.maxShrinks == -1 ? -failtree.fuel : options.maxShrinks - failtree.fuel
+        return ret({
+          ...not_ok,
+          reason: 'counterexample',
+          counterexample: failtree.tree.top,
+          shrinks,
+          ...p.test_details(tests),
+        })
+      }
     } catch (exception) {
       return ret({
         ...not_ok,
@@ -265,14 +273,6 @@ export function search<A>(
         exception,
         when: 'evaluating',
         counterexample: current,
-        ...p.test_details(tests),
-      })
-    }
-    if (failtree) {
-      return ret({
-        ...not_ok,
-        reason: 'counterexample',
-        ...failtree.top,
         ...p.test_details(tests),
       })
     }

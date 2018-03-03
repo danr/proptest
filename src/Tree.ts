@@ -5,6 +5,8 @@ export interface StrictTree<A> {
   readonly forest: StrictTree<A>[]
 }
 
+let then_count = 0
+
 export class Tree<A> {
   constructor(readonly top: A, readonly forest: () => Tree<A>[]) {}
   static of<A>(a: A): Tree<A> {
@@ -16,12 +18,12 @@ export class Tree<A> {
   static tree$<A>(top: A, forest: Tree<A>[]): Tree<A> {
     return new Tree(top, () => forest)
   }
-  map<B>(f: (a: A, depth: number) => B): Tree<B> {
-    return this.then((a: A, depth: number) => Tree.of(f(a, depth)))
+  map<B>(f: (a: A) => B): Tree<B> {
+    return this.then((a: A) => Tree.of(f(a)))
   }
-  then<B>(f: (a: A, depth: number) => Tree<B>, depth = 0): Tree<B> {
-    const t = f(this.top, depth)
-    return new Tree(t.top, () => [...this.forest().map(t => t.then(f, depth + 1)), ...t.forest()])
+  then<B>(f: (a: A) => Tree<B>): Tree<B> {
+    const t = f(this.top)
+    return new Tree(t.top, () => [...this.forest().map(t => t.then(f)), ...t.forest()])
   }
 
   left_first_pair<B>(tb: Tree<B>): Tree<[A, B]> {
@@ -31,23 +33,31 @@ export class Tree<A> {
     return Tree.dist({a: this, b: tb}).map(p => Utils.pair(p.a, p.b))
   }
 
-  left_first_search(p: (a: A) => boolean, fuel = -1): Tree<A> | undefined {
+  left_first_search(p: (a: A) => boolean, fuel = -1): {tree: Tree<A>; fuel: number} | undefined {
     // used for shrinking
     // returns the last but leftmost subtree without any backtracking where the property is true
-    if (p(this.top)) {
-      if (fuel == 0) {
-        return this
-      }
-      const forest = this.forest()
+    function dfs(tree: Tree<A>, fuel: number): {tree: Tree<A>; fuel: number} | undefined {
+      then_count = 0
+      const forest = tree.forest()
+      const count = then_count
+      const N = forest.length
       for (let i = 0; i < forest.length; i++) {
-        const res = forest[i].left_first_search(p, fuel - 1)
-        if (res != undefined) {
-          return res
+        // console.log({fuel, N, count})
+        if (fuel == 0) {
+          break
+        }
+        fuel--
+        if (p(forest[i].top)) {
+          return dfs(forest[i], fuel)
         }
       }
-      return this
+      return {tree, fuel}
     }
-    return undefined
+    if (p(this.top)) {
+      return dfs(this, fuel)
+    } else {
+      return undefined
+    }
   }
 
   /** distribute fairly */
@@ -70,7 +80,7 @@ export class Tree<A> {
   force(depth: number = -1): StrictTree<A> {
     return {
       top: this.top,
-      forest: depth == 0 ? [] : this.forest().map(t => t.force(depth - 1)),
+      forest: depth == 0 ? [] : this.forest().map(t => t.force(-1)),
     }
   }
 }
