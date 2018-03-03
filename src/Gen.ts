@@ -44,6 +44,18 @@ interface GenEnv {
   readonly size: number
 }
 
+export type GenChar = Gen<string> & {
+  string(sep?: string): Gen<string>
+  nestring(sep?: string): Gen<string>
+}
+
+export function GenChar(g: Gen<string>): GenChar {
+  const gc = g as GenChar
+  gc.string = sep => GenChar(Gen.string(g, sep))
+  gc.nestring = sep => GenChar(Gen.nestring(g, sep))
+  return gc
+}
+
 export class Gen<A> {
   private constructor(private readonly gen: (env: GenEnv) => Tree<A>) {}
   static of<A>(a: A): Gen<A> {
@@ -137,14 +149,14 @@ export class Gen<A> {
   }
 
   /** hi inclusive */
-  static char_range(lo: string, hi: string): Gen<string> {
-    return Gen.between(lo.charCodeAt(0), hi.charCodeAt(0)).map(i => String.fromCharCode(i))
+  static char_range(lo: string, hi: string): GenChar {
+    return GenChar(Gen.between(lo.charCodeAt(0), hi.charCodeAt(0)).map(i => String.fromCharCode(i)))
   }
-  static char(chars: string): Gen<string> {
+  static char(chars: string): GenChar {
     if (chars.length == 0) {
       throw 'Gen.choose empty string'
     } else {
-      return Gen.between(0, chars.length).map(i => chars[i])
+      return GenChar(Gen.between(0, chars.length).map(i => chars[i]))
     }
   }
   static choose<A>(xs: A[]): Gen<A> {
@@ -158,6 +170,9 @@ export class Gen<A> {
     return Gen.choose(gs).then(g => g)
   }
   static frequency<A>(table: [number, Gen<A>][]): Gen<A> {
+    return Gen.lazy_frequency(table.map(([i, g]) => [i, () => g] as [number, () => Gen<A>]))
+  }
+  static lazy_frequency<A>(table: [number, () => Gen<A>][]): Gen<A> {
     let sum = 0
     table.forEach(([f, g]) => {
       if (f >= 0) {
@@ -170,7 +185,7 @@ export class Gen<A> {
           i -= f
         }
         if (i < 0) {
-          return g
+          return g()
         }
       }
       throw 'Gen.frequency unreachable'
@@ -209,18 +224,19 @@ export class Gen<A> {
 
   static bool: Gen<boolean> = Gen.choose([false, true])
 
+  static bin: Gen<number> = Gen.range(2)
   static nat: Gen<number> = Gen.size().then(size => Gen.range(size + 1))
   static int: Gen<number> = Gen.oneof([Gen.nat, Gen.nat.map(x => -x)])
   static pos: Gen<number> = Gen.nat.map(x => x + 1)
   static neg: Gen<number> = Gen.nat.map(x => -x - 1)
 
-  static digit: Gen<string> = Gen.char_range('0', '9')
-  static lower: Gen<string> = Gen.char_range('a', 'z')
-  static upper: Gen<string> = Gen.char_range('A', 'Z')
-  static alpha: Gen<string> = Gen.oneof([Gen.lower, Gen.upper])
-  static alphanum: Gen<string> = Gen.oneof([Gen.alpha, Gen.digit])
-  static ascii: Gen<string> = Gen.char_range('!', '~')
-  static whitespace: Gen<string> = Gen.char(` \n\t`)
+  static digit: GenChar = Gen.char_range('0', '9')
+  static lower: GenChar = Gen.char_range('a', 'z')
+  static upper: GenChar = Gen.char_range('A', 'Z')
+  static alpha: GenChar = GenChar(Gen.oneof([Gen.lower, Gen.upper]))
+  static alphanum: GenChar = GenChar(Gen.oneof([Gen.alpha, Gen.digit]))
+  static ascii: GenChar = Gen.char_range('!', '~')
+  static whitespace: GenChar = Gen.char(` \n\t`)
 
   static string(g: Gen<string>, sep = ''): Gen<string> {
     return g.array().map(xs => xs.join(sep))
@@ -229,10 +245,7 @@ export class Gen<A> {
     return g.nearray().map(xs => xs.join(sep))
   }
 
-  static pojo<A>(
-    v: Gen<A>,
-    k: Gen<string> = Gen.nestring(Gen.lower).resize(s => s / 5)
-  ): Gen<Record<string, A>> {
+  static pojo<A>(v: Gen<A>, k: Gen<string> = Gen.lower.nestring().small()): Gen<Record<string, A>> {
     return Gen.record({k, v})
       .array()
       .map(Utils.record_create)
@@ -256,11 +269,26 @@ export class Gen<A> {
     return g.nearray()
   }
 
-  static size(): Gen<number> {
+  private static size(): Gen<number> {
     return new Gen(env => shrink_number(env.size, 0))
   }
   resize(op: (size: number) => number): Gen<A> {
-    return new Gen(env => this.gen({...env, size: Math.max(1, op(env.size))}))
+    return Gen.resize(op, this)
+  }
+  static resize<A>(op: (size: number) => number, g: Gen<A>): Gen<A> {
+    return new Gen(env => g.gen({...env, size: Math.max(1, Math.round(op(env.size)))}))
+  }
+  small(): Gen<A> {
+    return this.pow(0.5)
+  }
+  big(): Gen<A> {
+    return this.pow(1.5)
+  }
+  huge(): Gen<A> {
+    return this.pow(2)
+  }
+  pow(exponent: number): Gen<A> {
+    return this.resize(x => Math.pow(x, exponent))
   }
 
   /** Permute using Fisher-Yates shuffle */

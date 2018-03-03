@@ -52,7 +52,7 @@ test('deepEquals', t => {
 })
 
 const GTree = <A>(g: Gen<A>) =>
-  Gen.size().then(s0 => {
+  Gen.nat.then(s0 => {
     function go(s: number): Gen<Tree<A>> {
       return Gen.frequency([
         [1, g.map(Tree.of)],
@@ -102,7 +102,7 @@ qc(
 qc('traverse homomorphic with no overlap', Gen.nat.pojo().replicate(2), ([a, b], p) => {
   const k = (r: typeof a) => Utils.record_traverse(r, (v, k) => ({k, v}))
   const overlap = Object.keys(a).some(k => Object.keys(b).some(k2 => k == k2))
-  p.cover(!overlap, 85, '!overlap')
+  p.cover(!overlap, 75, '!overlap')
   return overlap || p.deepEquals(k(a).concat(k(b)), k({...a, ...b}))
 })
 
@@ -112,14 +112,14 @@ qc('tree join left', GTree(Gen.nat), t =>
       .then(t => t)
       .force(),
     t.force()
-  )
-)
+  ))
 
-qc('tree join right', GTree(Gen.nat), t =>
+
+qc('tree join right', GTree(Gen.bin), t =>
   Utils.deepEquals(t.then(j => Tree.of(j)).force(), t.force())
 )
 
-qc('gen join left', Gen.record({i: Gen.nat, seed: Gen.nat, size: Gen.size()}), d =>
+qc('gen join left', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =>
   Utils.deepEquals(
     Gen.of(Gen.of(d.i))
       .then(g => g)
@@ -128,7 +128,7 @@ qc('gen join left', Gen.record({i: Gen.nat, seed: Gen.nat, size: Gen.size()}), d
   )
 )
 
-qc('gen join right', Gen.record({i: Gen.nat, seed: Gen.nat, size: Gen.size()}), d =>
+qc('gen join right', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =>
   Utils.deepEquals(
     Gen.of(d.i)
       .then(j => Gen.of(j))
@@ -161,6 +161,8 @@ qc('whitespace', Gen.whitespace, s => null != s.match(/^[ \n\t]$/))
 qc('alphanum', Gen.alphanum, s => null != s.match(/^[A-Za-z0-9]$/))
 qc('digit', Gen.digit, s => null != s.match(/^[0-9]$/))
 qc('upper->lower', Gen.upper.map(u => u.toLowerCase()), s => null != s.match(/^[a-z]$/))
+
+qc('char.string', Gen.char('ab').nestring(), s => s.length > 0)
 
 test('unexpected success', t => {
   const res = QuickCheck(Gen.nat, x => x >= 0, expectFailure)
