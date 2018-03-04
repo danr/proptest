@@ -31,24 +31,11 @@ export class Tree<A> {
     return Tree.dist({a: this, b: tb}).map(p => Utils.pair(p.a, p.b))
   }
 
+  /** returns the last but leftmost subtree without any backtracking
+   where the property is true */
   left_first_search(p: (a: A) => boolean, fuel = -1): {tree: Tree<A>; fuel: number} | undefined {
-    // used for shrinking
-    // returns the last but leftmost subtree without any backtracking where the property is true
-    function dfs(tree: Tree<A>, fuel: number): {tree: Tree<A>; fuel: number} | undefined {
-      const forest = tree.forest()
-      for (let i = 0; i < forest.length; i++) {
-        if (fuel == 0) {
-          break
-        }
-        fuel--
-        if (p(forest[i].top)) {
-          return dfs(forest[i], fuel)
-        }
-      }
-      return {tree, fuel}
-    }
     if (p(this.top)) {
-      return dfs(this, fuel)
+      return dfs(p, this, fuel)
     } else {
       return undefined
     }
@@ -78,4 +65,61 @@ export class Tree<A> {
       forest: depth == 0 ? [] : this.forest().map(t => t.force(depth - 1)),
     }
   }
+}
+
+const resolution = 0.01
+
+function halves(n: number, round = (x: number) => Math.floor(x)): number[] {
+  const out: number[] = []
+  let i = n
+  do {
+    i = round(i / 2)
+    out.push(i)
+  } while (i > resolution)
+  return out
+}
+
+export function shrinkNumber(n: number, towards: number = 0): Tree<number> {
+  if (towards != 0) {
+    return shrinkNumber(towards - n).map(i => towards - i)
+  } else if (n < 0) {
+    return shrinkNumber(-n).map(i => -i)
+  } else {
+    return (function go(i: number): Tree<number> {
+      const candidates: number[] = []
+      if (i > 0) {
+        // binary search:
+        candidates.push(...halves(i))
+        // binary search with fractions
+        if (Math.round(i) != i && i > resolution) {
+          candidates.push(...halves(i, x => x))
+        }
+      }
+      // fallback: linear search, although this is not really feasible in a big range
+      const range = 10
+      for (let j = i - 1, c = 0; j > Math.ceil(i / 2) && c < range; j--, c++) {
+        candidates.push(j)
+      }
+      return new Tree(i, () => candidates.map(go))
+    })(n)
+  }
+}
+
+/** Assumes that the property already holds for the top of the tree. */
+export function dfs<A>(
+  p: (a: A) => boolean,
+  tree: Tree<A>,
+  fuel: number
+): {tree: Tree<A>; fuel: number} | undefined {
+  const forest = tree.forest()
+  for (let i = 0; i < forest.length; i++) {
+    if (fuel == 0) {
+      break
+    }
+    fuel--
+    if (p(forest[i].top)) {
+      return dfs(p, forest[i], fuel)
+    }
+  }
+  return {tree, fuel}
 }
