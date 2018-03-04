@@ -4,6 +4,7 @@ import * as Utils from '../src/Utils'
 import * as test from 'tape'
 
 const check = QC.adaptTape(test)
+const checkOnly = QC.adaptTape(test.only)
 
 const string_permute = (s: string) => Gen.permute(s.split('')).map(xs => xs.join(''))
 
@@ -22,6 +23,7 @@ check(
   Gen.record({l: Gen.nestring(Gen.lower), u: Gen.nestring(Gen.upper)}).map(r => r.l + r.u),
   s => null != s.match(/^[a-z]+[A-Z]+$/)
 )
+
 check(
   'lower-upper sequence',
   Gen.sequence([Gen.nestring(Gen.lower), Gen.nestring(Gen.upper)]).map(xs => xs.join('')),
@@ -42,7 +44,10 @@ check(
     const k = (r: typeof a) => Utils.record_traverse(r, (v, k) => ({k, v}))
     return p.equals(k(a).concat(k(b)), k({...a, ...b}))
   },
-  QC.expectFailure
+  QC.option({
+    expectFailure: true,
+    maxShrinks: 10, // shrinking is very slow for this example so let's disable it for now
+  })
 )
 
 check('traverse homomorphic with no overlap', Gen.nat.pojo().replicate(2), ([a, b], p) => {
@@ -96,6 +101,61 @@ check('digit', Gen.digit, s => null != s.match(/^[0-9]$/))
 check('upper->lower', Gen.upper.map(u => u.toLowerCase()), s => null != s.match(/^[a-z]$/))
 
 check('char.string', Gen.char('ab').nestring(), s => s.length > 0)
+
+const within = (l: number, x: number, u: number) => x >= l && x < u
+
+const R = Utils.fromTo(1, 4)
+R.forEach(l =>
+  R.forEach(
+    u =>
+      Math.abs(u - l) == 1 ||
+      check(
+        `between(${l}, ${u})`,
+        Gen.between(u, l),
+        (x, p) =>
+          Utils.fromTo(l, u + 1).forEach(i => p.cover(x == i, 20, i + '')) ||
+          within(Math.min(l, u), x, Math.max(l, u) + 1)
+      )
+  )
+)
+
+R.forEach(b =>
+  check(
+    `range(${b})`,
+    Gen.range(b),
+    (x, p) => Utils.range(b).forEach(i => p.cover(x == i, 20, i + '')) || within(0, x, b)
+  )
+)
+
+const u32gens = {
+  natural: QC.natural,
+  positive: QC.positive.map(x => x - 1),
+  integer: QC.integer.map(x => Math.abs(x)),
+  negative: QC.negative.map(x => -x),
+}
+
+Utils.record_forEach(u32gens, (g, name) => {
+  check(
+    'u32 distribution ' + name,
+    g,
+    (x, p) => {
+      const mid = 1 << 30
+      p.cover(x < mid, 49, 'small')
+      p.cover(x >= mid, 49, 'big')
+      return true
+    },
+    QC.option({tests: 10000})
+  )
+
+  check('u32 range ' + name, g, x => within(0, x, ~(1 << 31)), QC.option({tests: 10000}))
+})
+
+check(
+  'integer negative distribution',
+  QC.integer,
+  (x, p) => p.cover(x < 0, 49, 'negative') || true,
+  QC.option({tests: 10000})
+)
 
 test('unexpected success', t => {
   const res = QC.search(Gen.nat, x => x >= 0, QC.expectFailure)

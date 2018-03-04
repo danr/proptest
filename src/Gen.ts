@@ -113,7 +113,7 @@ export function choose<A>(xs: A[]): Gen<A> {
   if (xs.length == 0) {
     throw 'choose empty array'
   } else {
-    return between(0, xs.length).map(i => xs[i])
+    return range(xs.length).map(i => xs[i])
   }
 }
 export function oneof<A>(gs: Gen<A>[]): Gen<A> {
@@ -131,7 +131,7 @@ export function frequencyLazy<A>(table: [number, () => Gen<A>][]): Gen<A> {
       sum += f
     }
   })
-  return between(0, sum).chain(i => {
+  return range(sum).chain(i => {
     for (const [f, g] of table) {
       if (f > 0) {
         i -= f
@@ -177,20 +177,20 @@ export function pojo<A>(
 }
 
 export function array<A>(g: Gen<A>): Gen<A[]> {
-  return nat.chain(i => g.replicate(i))
+  return nat.chain(i => replicate(i, g))
 }
 export function nearray<A>(g: Gen<A>): Gen<A[]> {
-  return pos.chain(i => g.replicate(i))
+  return pos.chain(i => replicate(i, g))
 }
 
 export function small<A>(g: Gen<A>): Gen<A> {
-  return g.pow(0.5)
+  return pow(0.5, g)
 }
 export function big<A>(g: Gen<A>): Gen<A> {
-  return g.pow(1.5)
+  return pow(1.5, g)
 }
 export function huge<A>(g: Gen<A>): Gen<A> {
-  return g.pow(2)
+  return pow(2, g)
 }
 export function pow<A>(exponent: number, g: Gen<A>): Gen<A> {
   return resize(x => Math.pow(x, exponent), g)
@@ -201,7 +201,7 @@ export function pow<A>(exponent: number, g: Gen<A>): Gen<A> {
 
 /** max exclusive */
 export function range(max: number): Gen<number> {
-  return between(0, max)
+  return between(0, max - 1)
 }
 
 /** max exclusive */
@@ -209,9 +209,9 @@ export function rangeFloat(max: number = 1): Gen<number> {
   return betweenFloat(0, max)
 }
 
-/** hi exclusive */
+/** hi inclusive */
 export function between(lo: number, hi: number): Gen<number> {
-  return _between(lo, hi, (rng, lo, hi) => rng.integer(lo, hi - 1))
+  return _between(lo, hi + 1, (rng, lo, hi) => rng.integer(lo, hi - 1))
 }
 
 /** hi exclusive */
@@ -230,9 +230,9 @@ function _between(
     throw 'Range bounds must be proper numbers:' + {hi, lo}
   }
   if (w0 < 0) {
-    return _between(lo, hi, random).map(x => hi - x + lo)
+    return _between(hi, lo, random).map(x => hi - x + lo)
   } else if (w0 == 0) {
-    throw 'range of zero width'
+    throw new Error('range of zero width')
   } else {
     return new Gen(env => {
       const w = hi - lo
@@ -242,11 +242,35 @@ function _between(
   }
 }
 
-export const bin: Gen<number> = range(2)
+/** Generate a binary number (0 or 1) */
+export const bin: Gen<0 | 1> = choose<0 | 1>([0, 1])
+
+/** Generate a small natural number */
 export const nat: Gen<number> = size().chain(size => range(size + 1))
+
+/** Generate a small integer */
 export const int: Gen<number> = oneof([nat, nat.map(x => -x)])
+
+/** Generate a small positive number */
 export const pos: Gen<number> = nat.map(x => x + 1)
+
+/** Generate a small negative number */
 export const neg: Gen<number> = nat.map(x => -x - 1)
+
+const min32 = 1 << 31
+const max32 = ~(1 << 31)
+
+/** Generate a nonnegative i32 */
+export const natural: Gen<number> = between(0, max32)
+
+/** Generate any i32 */
+export const integer: Gen<number> = between(min32, max32)
+
+/** Generate a positive i32 */
+export const positive: Gen<number> = between(1, max32)
+
+/** Generate a negative i32 */
+export const negative: Gen<number> = between(min32, -1)
 
 export const bool: Gen<boolean> = choose([false, true])
 
@@ -254,10 +278,10 @@ export const bool: Gen<boolean> = choose([false, true])
 // Character generators
 
 export function string(g: Gen<string>, sep = ''): Gen<string> {
-  return g.array().map(xs => xs.join(sep))
+  return array(g).map(xs => xs.join(sep))
 }
 export function nestring(g: Gen<string>, sep = ''): Gen<string> {
-  return g.nearray().map(xs => xs.join(sep))
+  return nearray(g).map(xs => xs.join(sep))
 }
 
 export type GenChar = Gen<string> & {
@@ -280,7 +304,7 @@ export function char(chars: string): GenChar {
   if (chars.length == 0) {
     throw 'choose empty string'
   } else {
-    return blessGenChar(between(0, chars.length).map(i => chars[i]))
+    return blessGenChar(range(chars.length).map(i => chars[i]))
   }
 }
 
@@ -303,7 +327,7 @@ export function concat(gs: Gen<string>[], sep = ''): Gen<string> {
 export function permute<A>(xs: A[]): Gen<A[]> {
   const m_swaps: Gen<{i: number; j: number}>[] = []
   for (let i = 0; i < xs.length - 1; i++) {
-    m_swaps.push(between(i, xs.length).map(j => ({i, j})))
+    m_swaps.push(between(i, xs.length - 1).map(j => ({i, j})))
   }
   return sequence(m_swaps).map(swaps => {
     const ys = xs.slice()

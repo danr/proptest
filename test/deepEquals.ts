@@ -26,9 +26,9 @@ test('deepEquals', t => {
     diff.forEach((y, j) => {
       const xy = JSON.stringify(x) + ' ' + JSON.stringify(y)
       if (i === j) {
-        t.true(Utils.deepEquals(x, y), xy)
+        Utils.deepEquals(x, y) || t.fail(xy)
       } else {
-        t.false(Utils.deepEquals(x, y), xy)
+        !Utils.deepEquals(x, y) || t.fail(xy)
       }
     })
   )
