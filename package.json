@@ -29,14 +29,14 @@
     "random-js": "^1.0.8"
   },
   "devDependencies": {
-    "@types/node": "^9.4.0",
+    "@types/node": "^9.4.6",
     "@types/random-js": "^1.0.30",
     "@types/tape": "^4.2.31",
-    "prettier": "^1.10.2",
+    "prettier": "^1.11.1",
     "tap-spec": "^4.1.1",
     "tape": "^4.9.0",
-    "ts-node": "^5.0.0",
-    "typescript": "^2.7.1"
+    "ts-node": "^5.0.1",
+    "typescript": "^2.7.2"
   },
   "scripts": {
     "build": "tsc",
