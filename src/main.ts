@@ -35,15 +35,36 @@ export const forall = searchAndThen((res, options) => {
   }
 })
 
-export interface TestCase {
-  true(x: any): void
+/** Searches for a counterexample and returns it as a string if found */
+export const forallStrings = searchAndThen((res, options) => {
+  const w = P.Write(options.verbose)
+  w.SearchResult(res)
+  return {ok: res.ok, messages: w.messages.map(xs => xs.join(' '))}
+})
+
+export interface TapeTest {
+  pass(msg: string): void
+  fail(msg: string): void
+  comment(msg: string): void
   end(): void
 }
 
 /** Adapt tape using forall_stdout */
 export function adaptTape(
-  test: (name: string, cb: (t: TestCase) => void) => void
+  test: (name: string, cb: (t: TapeTest) => void) => void
 ): <A>(name: string, g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Options) => void {
   return (name, g, prop, options) =>
-    test(name, t => (t.true(stdoutForall(g, prop, options)), t.end()))
+    test(name, t => {
+      const res = forallStrings(g, prop, options)
+      const [head, ...tail] = res.messages
+      if (res.ok) {
+        options && options.verbose && tail.forEach(msg => (t as any).comment(msg))
+        t.pass(head)
+      }
+      if (!res.ok) {
+        tail.forEach(msg => t.comment(msg))
+        t.fail(name + ': ' + head)
+      }
+      t.end()
+    })
 }

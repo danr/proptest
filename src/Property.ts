@@ -59,23 +59,20 @@ export function Format(verbose: boolean = false, log: (...objs: any[]) => void) 
     SearchResult(result: SearchResult<any>) {
       if (result.ok) {
         if (result.expectedFailure) {
-          log(`Ok, failing as expected:`)
+          log(`failing as expected`)
           this.SearchResult(result.expectedFailure)
           log(`(expected failure)`)
         } else {
+          log(`passed ${result.tests} tests`)
           verbose && this.Covers(result)
           this.Stamps(result)
-          log(`Ok, passed ${result.tests} tests.`)
         }
       } else {
-        verbose && this.Stamps(result)
-        verbose && this.Covers(result)
-        this.LastLog(result)
         switch (result.reason) {
           case 'counterexample':
-            log(`Counterexample found after ${result.tests} tests and ${result.shrinks} shrinks:`)
+            log(`Counterexample found after ${result.tests} tests and ${result.shrinks} shrinks`)
             log(Utils.show(result.counterexample))
-            return
+            break
           case 'exception':
             log(`Exception when ${result.when} after ${result.tests} tests:`)
             log(result.exception)
@@ -83,19 +80,22 @@ export function Format(verbose: boolean = false, log: (...objs: any[]) => void) 
               log(`Exception occured with this input after ${result.shrinks} shrinks:`)
               log(Utils.show(result.counterexample))
             }
-            return
+            break
           case 'insufficient coverage':
-            verbose || this.Covers(result)
             log(`Insufficient coverage for label ${result.label}`)
-            return
+            verbose || this.Covers(result)
+            break
 
           case 'unexpected success':
             log(`Unexpected success in presence of expectFailure`)
-            return
+            break
 
           default:
             const _: never = result
         }
+        verbose && this.Covers(result)
+        verbose && this.Stamps(result)
+        this.LastLog(result)
       }
     },
   }
