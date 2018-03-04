@@ -18,7 +18,9 @@ export const randomSeed = option({seed: undefined})
 
 /** Searches for a counterexample and prints it on stdout if it is found.
 
-Returns whether a counterexample was found. */
+Returns whether a counterexample was found.
+
+TODO: Remove in favour of forallStrings? */
 export const stdoutForall = searchAndThen((res, options) => {
   if (!res.ok) {
     P.Stdout(options.verbose).SearchResult(res)
@@ -35,7 +37,7 @@ export const forall = searchAndThen((res, options) => {
   }
 })
 
-/** Searches for a counterexample and returns it as a string if found */
+/** Searches for a counterexample and returns the result formatted as an array of strings */
 export const forallStrings = searchAndThen((res, options) => {
   const w = P.Write(options.verbose)
   w.SearchResult(res)
@@ -49,7 +51,7 @@ export interface TapeTest {
   end(): void
 }
 
-/** Adapt tape using forall_stdout */
+/** Adapt tape using forallStrings */
 export function adaptTape(
   test: (name: string, cb: (t: TapeTest) => void) => void
 ): <A>(name: string, g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Options) => void {
