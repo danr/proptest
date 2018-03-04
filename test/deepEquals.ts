@@ -22,6 +22,7 @@ test('deepEquals', t => {
   ]
   diff.push(...diff.map((x: any) => [[x]]))
   diff.push(...diff.map((x: any) => [x]))
+  let comparisons = 0
   diff.forEach((x, i) =>
     diff.forEach((y, j) => {
       const xy = JSON.stringify(x) + ' ' + JSON.stringify(y)
@@ -30,7 +31,9 @@ test('deepEquals', t => {
       } else {
         !Utils.deepEquals(x, y) || t.fail(xy)
       }
+      comparisons++
     })
   )
+  t.pass(`Passed ${comparisons} comparisons.`)
   t.end()
 })

@@ -33,7 +33,7 @@
     "@types/random-js": "^1.0.30",
     "@types/tape": "^4.2.31",
     "prettier": "^1.10.2",
-    "tap-diff": "^0.1.1",
+    "tap-spec": "^4.1.1",
     "tape": "^4.9.0",
     "ts-node": "^5.0.0",
     "typescript": "^2.7.1"
@@ -41,7 +41,7 @@
   "scripts": {
     "build": "tsc",
     "prettier": "prettier --list-different --write \"{src,test}/**/*.ts\"",
-    "test": "ts-node node_modules/tape/bin/tape test/*.ts | tap-diff"
+    "test": "ts-node node_modules/tape/bin/tape test/*.ts | tap-spec"
   },
   "prettier": {
     "printWidth": 100,
