@@ -4,16 +4,17 @@ import * as Random from 'random-js'
 
 const resolution = 0.01
 
-const halves = (n: number, round = (x: number) => Math.floor(x)): number[] =>
-  Utils.writer(write => {
-    let i = n
-    do {
-      i = round(i / 2)
-      write(i)
-    } while (i > resolution)
-  })
+function halves(n: number, round = (x: number) => Math.floor(x)): number[] {
+  const out: number[] = []
+  let i = n
+  do {
+    i = round(i / 2)
+    out.push(i)
+  } while (i > resolution)
+  return out
+}
 
-export function shrink_number(n: number, towards: number = 0): Tree<number> {
+function shrink_number(n: number, towards: number = 0): Tree<number> {
   if (towards != 0) {
     return shrink_number(towards - n).map(i => towards - i)
   } else if (n < 0) {

@@ -1,15 +1,6 @@
 export function pair<A, B>(a: A, b: B): [A, B] {
   return [a, b]
 }
-export function sigma<A, B>(a: A, f: (a: A) => B): [A, B] {
-  return [a, f(a)]
-}
-
-export function writer<A>(handle: (write: (...xs: A[]) => void) => void): A[] {
-  const out: A[] = []
-  handle(out.push.bind(out))
-  return out
-}
 
 export function record<K extends string, V>(
   handle: (write: (k: K, v: V) => void) => void
