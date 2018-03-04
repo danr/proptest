@@ -291,4 +291,3 @@ export function search_then<R>(
 ): <A>(g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Options) => R {
   return (g, prop, options) => then(search(g, prop, options), options || default_options)
 }
-

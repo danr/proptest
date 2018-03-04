@@ -43,15 +43,7 @@ export interface TestCase {
 /** Adapt tape using forall_stdout */
 export function tape_adapter(
   test: (name: string, cb: (t: TestCase) => void) => void
-): <A>(
-  name: string,
-  g: Gen<A>,
-  prop: (a: A, p: Property) => boolean,
-  options?: Options,
-) => void {
+): <A>(name: string, g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Options) => void {
   return (name, g, prop, options) =>
-    test(
-      name,
-      t => (t.true(forall_stdout(g, prop, options)), t.end())
-    )
+    test(name, t => (t.true(forall_stdout(g, prop, options)), t.end()))
 }
