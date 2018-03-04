@@ -1,126 +1,58 @@
-import {Gen, Tree, tape_adapter, expectFailure, random_seed, search} from '../src/main'
+import {Gen} from '../src/main'
 import * as QC from '../src/main'
 import * as Utils from '../src/Utils'
-import * as main from '../src/main'
 import * as test from 'tape'
 
-const qc = tape_adapter(test)
+const check = QC.tape_adapter(test)
 
 const string_permute = (s: string) => Gen.permute(s.split('')).map(xs => xs.join(''))
 
-qc(
+check(
   'permute',
   Gen.record({
     a: string_permute('aaaaaaacaaaa'),
     b: string_permute('dbbbbbbbbbbb'),
   }),
   r => r.a < r.b,
-  expectFailure
+  QC.expectFailure
 )
 
-test('deepEquals', t => {
-  const diff: any[] = [
-    [],
-    {},
-    null,
-    undefined,
-    false,
-    true,
-    0,
-    1,
-    '',
-    '0',
-    '1',
-    'a',
-    {'': 0},
-    {a: {b: 1}},
-    {a: {b: 2}},
-    {a: {d: 1}},
-  ]
-  diff.push(...diff.map((x: any) => [[x]]))
-  diff.push(...diff.map((x: any) => [x]))
-  diff.forEach((x, i) =>
-    diff.forEach((y, j) => {
-      const xy = JSON.stringify(x) + ' ' + JSON.stringify(y)
-      if (i === j) {
-        t.true(Utils.deepEquals(x, y), xy)
-      } else {
-        t.false(Utils.deepEquals(x, y), xy)
-      }
-    })
-  )
-  t.end()
-})
-
-const GTree = <A>(g: Gen<A>) =>
-  Gen.nat.chain(s0 => {
-    function go(s: number): Gen<Tree<A>> {
-      return Gen.frequency([
-        [1, g.map(Tree.of)],
-        [
-          s,
-          g.chain(top =>
-            Gen.between(2, 5).chain(n =>
-              go(Math.max(0, Math.round(s / n)))
-                .replicate(n)
-                .map(tree => new Tree(top, () => tree))
-            )
-          ),
-        ],
-      ])
-    }
-    return go(s0)
-  })
-
-qc(
+check(
   'lower-upper record',
   Gen.record({l: Gen.nestring(Gen.lower), u: Gen.nestring(Gen.upper)}).map(r => r.l + r.u),
   s => null != s.match(/^[a-z]+[A-Z]+$/)
 )
-qc(
+check(
   'lower-upper sequence',
   Gen.sequence([Gen.nestring(Gen.lower), Gen.nestring(Gen.upper)]).map(xs => xs.join('')),
   s => null != s.match(/^[a-z]+[A-Z]+$/)
 )
 
-qc(
-  'lower-upper expectFailure',
+check(
+  'lower-upper QC.expectFailure',
   Gen.sequence([Gen.nestring(Gen.lower), Gen.nestring(Gen.upper)]).map(xs => xs.join('')),
   s => null != s.match(/^([a-zA-Z]){0,20}$/),
-  expectFailure
+  QC.expectFailure
 )
 
-qc(
+check(
   'traverse homomorphic',
   Gen.nat.pojo().replicate(2),
   ([a, b], p) => {
     const k = (r: typeof a) => Utils.record_traverse(r, (v, k) => ({k, v}))
     return p.deepEquals(k(a).concat(k(b)), k({...a, ...b}))
   },
-  expectFailure
+  QC.expectFailure
 )
 
-qc('traverse homomorphic with no overlap', Gen.nat.pojo().replicate(2), ([a, b], p) => {
+check('traverse homomorphic with no overlap', Gen.nat.pojo().replicate(2), ([a, b], p) => {
   const k = (r: typeof a) => Utils.record_traverse(r, (v, k) => ({k, v}))
   const overlap = Object.keys(a).some(k => Object.keys(b).some(k2 => k == k2))
   p.cover(!overlap, 75, '!overlap')
   return overlap || p.deepEquals(k(a).concat(k(b)), k({...a, ...b}))
 })
 
-qc('tree join left', GTree(Gen.nat), t =>
-  Utils.deepEquals(
-    Tree.of(t)
-      .chain(t => t)
-      .force(),
-    t.force()
-  )
-)
-
-qc('tree join right', GTree(Gen.bin), t =>
-  Utils.deepEquals(t.chain(j => Tree.of(j)).force(), t.force())
-)
-
-qc('gen join left', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =>
+check('gen join left', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =>
   Utils.deepEquals(
     Gen.of(Gen.of(d.i))
       .chain(g => g)
@@ -129,7 +61,7 @@ qc('gen join left', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =>
   )
 )
 
-qc('gen join right', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =>
+check('gen join right', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =>
   Utils.deepEquals(
     Gen.of(d.i)
       .chain(j => Gen.of(j))
@@ -138,49 +70,49 @@ qc('gen join right', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =
   )
 )
 
-qc('nat', Gen.nat, x => x >= 0)
-qc('nat', Gen.nat, x => x > 0, expectFailure)
-qc('nat', Gen.nat, x => x < 0, expectFailure)
+check('nat', Gen.nat, x => x >= 0)
+check('nat', Gen.nat, x => x > 0, QC.expectFailure)
+check('nat', Gen.nat, x => x < 0, QC.expectFailure)
 
-qc('int', Gen.int, x => x >= 0, expectFailure)
-qc('int', Gen.int, x => x <= 0, expectFailure)
+check('int', Gen.int, x => x >= 0, QC.expectFailure)
+check('int', Gen.int, x => x <= 0, QC.expectFailure)
 
-qc('pos', Gen.pos, x => x > 0)
-qc('pos', Gen.pos, x => x <= 0, expectFailure)
+check('pos', Gen.pos, x => x > 0)
+check('pos', Gen.pos, x => x <= 0, QC.expectFailure)
 
-qc('neg', Gen.neg, x => x < 0)
-qc('neg', Gen.neg, x => x >= 0, expectFailure)
+check('neg', Gen.neg, x => x < 0)
+check('neg', Gen.neg, x => x >= 0, QC.expectFailure)
 
-qc('replicate', Gen.nat.replicate(10), xs => xs.length == 10)
-qc('array', Gen.nat.array(), xs => xs.length >= 0)
-qc('array', Gen.nat.array(), xs => xs.length > 0, expectFailure)
-qc('nearray', Gen.nat.nearray(), xs => xs.length > 0)
-qc('upper', Gen.upper, s => null != s.match(/^[A-Z]$/))
-qc('lower', Gen.lower, s => null != s.match(/^[a-z]$/))
-qc('alpha', Gen.alpha, s => null != s.match(/^[A-Za-z]$/))
-qc('whitespace', Gen.whitespace, s => null != s.match(/^[ \n\t]$/))
-qc('alphanum', Gen.alphanum, s => null != s.match(/^[A-Za-z0-9]$/))
-qc('digit', Gen.digit, s => null != s.match(/^[0-9]$/))
-qc('upper->lower', Gen.upper.map(u => u.toLowerCase()), s => null != s.match(/^[a-z]$/))
+check('replicate', Gen.nat.replicate(10), xs => xs.length == 10)
+check('array', Gen.nat.array(), xs => xs.length >= 0)
+check('array', Gen.nat.array(), xs => xs.length > 0, QC.expectFailure)
+check('nearray', Gen.nat.nearray(), xs => xs.length > 0)
+check('upper', Gen.upper, s => null != s.match(/^[A-Z]$/))
+check('lower', Gen.lower, s => null != s.match(/^[a-z]$/))
+check('alpha', Gen.alpha, s => null != s.match(/^[A-Za-z]$/))
+check('whitespace', Gen.whitespace, s => null != s.match(/^[ \n\t]$/))
+check('alphanum', Gen.alphanum, s => null != s.match(/^[A-Za-z0-9]$/))
+check('digit', Gen.digit, s => null != s.match(/^[0-9]$/))
+check('upper->lower', Gen.upper.map(u => u.toLowerCase()), s => null != s.match(/^[a-z]$/))
 
-qc('char.string', Gen.char('ab').nestring(), s => s.length > 0)
+check('char.string', Gen.char('ab').nestring(), s => s.length > 0)
 
 test('unexpected success', t => {
-  const res = search(Gen.nat, x => x >= 0, expectFailure)
+  const res = QC.search(Gen.nat, x => x >= 0, QC.expectFailure)
   const reason = res.ok ? '?' : res.reason
   t.deepEquals(reason, 'unexpected success')
   t.end()
 })
 
 test('unexpected success', t => {
-  const res = search(Gen.nat, x => x > 0, expectFailure)
+  const res = QC.search(Gen.nat, x => x > 0, QC.expectFailure)
   t.deepEquals(res.ok, true)
   t.true((res as any).expectedFailure)
   t.end()
 })
 
 test('exception evaluating', t => {
-  const res = search(Gen.of({}), _ => {
+  const res = QC.search(Gen.of({}), _ => {
     throw 'OOPS'
   })
   t.deepEquals(res.ok, false)
@@ -190,7 +122,7 @@ test('exception evaluating', t => {
 })
 
 test('exception generating', t => {
-  const res = search(
+  const res = QC.search(
     Gen.of({}).chain(_ => {
       throw 'Oops'
     }),
@@ -203,7 +135,7 @@ test('exception generating', t => {
 })
 
 test('cov', t => {
-  const res = search(Gen.nat, (x, p) => {
+  const res = QC.search(Gen.nat, (x, p) => {
     p.cover(x > 10, 75, '>10')
     return x >= 0
   })
@@ -212,7 +144,7 @@ test('cov', t => {
   t.end()
 })
 
-qc('permute', Gen.permute(Utils.range(5)), (xs, p) => {
+check('permute', Gen.permute(Utils.range(5)), (xs, p) => {
   return true
 })
 
@@ -269,3 +201,4 @@ Utils.fromTo(1,20).map(i =>
     })
   )
   */
+
