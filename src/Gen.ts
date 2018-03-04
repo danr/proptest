@@ -160,8 +160,8 @@ export function range(max: number) {
 }
 
 /** max exclusive */
-export function range_float(max: number = 1) {
-  return between_float(0, max)
+export function rangeFloat(max: number = 1) {
+  return betweenFloat(0, max)
 }
 
 /** hi exclusive */
@@ -170,7 +170,7 @@ export function between(lo: number, hi: number): Gen<number> {
 }
 
 /** hi exclusive */
-export function between_float(lo: number, hi: number): Gen<number> {
+export function betweenFloat(lo: number, hi: number): Gen<number> {
   return _between(lo, hi, (rng, lo, hi) => rng.real(lo, hi))
 }
 
@@ -198,7 +198,7 @@ function _between(
 }
 
 /** hi inclusive */
-export function char_range(lo: string, hi: string): GenChar {
+export function charRange(lo: string, hi: string): GenChar {
   return blessGenChar(between(lo.charCodeAt(0), hi.charCodeAt(0)).map(i => String.fromCharCode(i)))
 }
 export function char(chars: string): GenChar {
@@ -219,9 +219,9 @@ export function oneof<A>(gs: Gen<A>[]): Gen<A> {
   return choose(gs).chain(g => g)
 }
 export function frequency<A>(table: [number, Gen<A>][]): Gen<A> {
-  return lazy_frequency(table.map(([i, g]) => Utils.pair(i, () => g)))
+  return frequencyLazy(table.map(([i, g]) => Utils.pair(i, () => g)))
 }
-export function lazy_frequency<A>(table: [number, () => Gen<A>][]): Gen<A> {
+export function frequencyLazy<A>(table: [number, () => Gen<A>][]): Gen<A> {
   let sum = 0
   table.forEach(([f, g]) => {
     if (f >= 0) {
@@ -249,12 +249,12 @@ export const int: Gen<number> = oneof([nat, nat.map(x => -x)])
 export const pos: Gen<number> = nat.map(x => x + 1)
 export const neg: Gen<number> = nat.map(x => -x - 1)
 
-export const digit: GenChar = char_range('0', '9')
-export const lower: GenChar = char_range('a', 'z')
-export const upper: GenChar = char_range('A', 'Z')
+export const digit: GenChar = charRange('0', '9')
+export const lower: GenChar = charRange('a', 'z')
+export const upper: GenChar = charRange('A', 'Z')
 export const alpha: GenChar = blessGenChar(oneof([lower, upper]))
 export const alphanum: GenChar = blessGenChar(oneof([alpha, digit]))
-export const ascii: GenChar = char_range('!', '~')
+export const ascii: GenChar = charRange('!', '~')
 export const whitespace: GenChar = char(` \n\t`)
 
 export function string(g: Gen<string>, sep = ''): Gen<string> {

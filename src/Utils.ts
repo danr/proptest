@@ -30,7 +30,7 @@ export function fromTo(begin: number, end: number) {
   return out
 }
 
-export function char_range(begin: string, end: string): string[] {
+export function charRange(begin: string, end: string): string[] {
   return fromTo(begin.charCodeAt(0), end.charCodeAt(0)).map(x => String.fromCharCode(x))
 }
 

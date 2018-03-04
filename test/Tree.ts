@@ -3,7 +3,7 @@ import * as QC from '../src/main'
 import * as Gen from '../src/main'
 import * as test from 'tape'
 
-const check = QC.tape_adapter(test)
+const check = QC.adaptTape(test)
 
 const GTree = <A>(g: QC.Gen<A>) =>
   Gen.nat.chain(s0 => {

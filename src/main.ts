@@ -1,8 +1,8 @@
 import * as Utils from './Utils'
 
 import * as P from './Property'
-import {Property, Options, search, search_then} from './Property'
-export {Property, Options, search, search_then}
+import {Property, Options, search, searchAndThen} from './Property'
+export {Property, Options, search, searchAndThen}
 
 import {Gen} from './Gen'
 export {Gen}
@@ -14,12 +14,12 @@ export function option(opts: Partial<Options>): Options {
 
 export const expectFailure = option({expectFailure: true})
 export const verbose = option({verbose: true})
-export const random_seed = option({seed: undefined})
+export const randomSeed = option({seed: undefined})
 
 /** Searches for a counterexample and prints it on stdout if it is found.
 
 Returns whether a counterexample was found. */
-export const forall_stdout = search_then((res, options) => {
+export const stdoutForall = searchAndThen((res, options) => {
   if (!res.ok) {
     P.Stdout(options.verbose).SearchResult(res)
   }
@@ -27,7 +27,7 @@ export const forall_stdout = search_then((res, options) => {
 })
 
 /** Searches for a counterexample and throws an error if one is found */
-export const forall = search_then((res, options) => {
+export const forall = searchAndThen((res, options) => {
   if (!res.ok) {
     const w = P.Write(options.verbose)
     w.SearchResult(res)
@@ -41,9 +41,9 @@ export interface TestCase {
 }
 
 /** Adapt tape using forall_stdout */
-export function tape_adapter(
+export function adaptTape(
   test: (name: string, cb: (t: TestCase) => void) => void
 ): <A>(name: string, g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Options) => void {
   return (name, g, prop, options) =>
-    test(name, t => (t.true(forall_stdout(g, prop, options)), t.end()))
+    test(name, t => (t.true(stdoutForall(g, prop, options)), t.end()))
 }

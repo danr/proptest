@@ -3,7 +3,7 @@ import * as Gen from '../src/main'
 import * as Utils from '../src/Utils'
 import * as test from 'tape'
 
-const check = QC.tape_adapter(test)
+const check = QC.adaptTape(test)
 
 const string_permute = (s: string) => Gen.permute(s.split('')).map(xs => xs.join(''))
 

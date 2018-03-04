@@ -286,7 +286,7 @@ export function search<A>(
   return ret({ok: true, ...test_details})
 }
 
-export function search_then<R>(
+export function searchAndThen<R>(
   then: <A>(a: SearchResult<A>, options: Options) => R
 ): <A>(g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Options) => R {
   return (g, prop, options) => then(search(g, prop, options), options || default_options)
