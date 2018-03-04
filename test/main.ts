@@ -40,7 +40,7 @@ check(
   Gen.nat.pojo().replicate(2),
   ([a, b], p) => {
     const k = (r: typeof a) => Utils.record_traverse(r, (v, k) => ({k, v}))
-    return p.deepEquals(k(a).concat(k(b)), k({...a, ...b}))
+    return p.equals(k(a).concat(k(b)), k({...a, ...b}))
   },
   QC.expectFailure
 )
@@ -49,7 +49,7 @@ check('traverse homomorphic with no overlap', Gen.nat.pojo().replicate(2), ([a, 
   const k = (r: typeof a) => Utils.record_traverse(r, (v, k) => ({k, v}))
   const overlap = Object.keys(a).some(k => Object.keys(b).some(k2 => k == k2))
   p.cover(!overlap, 75, '!overlap')
-  return overlap || p.deepEquals(k(a).concat(k(b)), k({...a, ...b}))
+  return overlap || p.equals(k(a).concat(k(b)), k({...a, ...b}))
 })
 
 check('gen join left', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), d =>

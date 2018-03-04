@@ -26,7 +26,7 @@ const GTree = <A>(g: QC.Gen<A>) =>
   })
 
 check('tree join left', GTree(Gen.nat), (t, p) =>
-  p.deepEquals(
+  p.equals(
     Tree.of(t)
       .chain(t => t)
       .force(),
@@ -35,5 +35,5 @@ check('tree join left', GTree(Gen.nat), (t, p) =>
 )
 
 check('tree join right', GTree(Gen.bin), (t, p) =>
-  p.deepEquals(t.chain(j => Tree.of(j)).force(), t.force())
+  p.equals(t.chain(j => Tree.of(j)).force(), t.force())
 )

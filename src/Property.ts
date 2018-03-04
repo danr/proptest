@@ -104,7 +104,10 @@ export const Write = (verbose: boolean) => {
 }
 
 export interface Property {
-  deepEquals(lhs: any, rhs: any): boolean
+  /** Compares the values as if they were json objects using deep equality.
+
+  If the values are not equal the two sides are put into the log. */
+  equals(lhs: any, rhs: any): boolean
   cover(pred: boolean, required_percentage: number, label: string): void
   fail(msg: any): void
   label(stamp: string | any): void
@@ -154,7 +157,7 @@ function initProperty() {
       fail(msg) {
         throw msg
       },
-      deepEquals(lhs, rhs) {
+      equals(lhs, rhs) {
         const e = Utils.deepEquals(lhs, rhs)
         if (!e) {
           this.log('Not deeply equal:')
