@@ -8,6 +8,8 @@ const checkOnly = QC.adaptTape(test.only)
 
 const string_permute = (s: string) => Gen.permute(s.split('')).map(xs => xs.join(''))
 
+import * as assert from 'assert'
+
 check(
   'permute',
   Gen.record({
@@ -225,6 +227,20 @@ test('forall exception contains the counterexample', t => {
   } catch (e) {
     t.true(e.message.toString().match(/^Counterexample found/m))
     t.true(e.message.toString().match(/^"apabepa"/m))
+  }
+})
+
+test('forall exceptions catches counterexamples, fully shrunk', t => {
+  t.plan(3)
+  try {
+    QC.forall(QC.nat.replicate(2), ([x, y]) => {
+      assert(x + 10 > y)
+      return true
+    })
+  } catch (e) {
+    t.true(e.message.toString().match(/^Exception when evaluating/m))
+    t.true(e.message.toString().match(/^Exception occured with this input/m))
+    t.true(e.message.toString().match(/^\[0, 10\]/m))
   }
 })
 

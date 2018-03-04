@@ -24,13 +24,20 @@ export type SearchResult<A> = TestDetails &
     | {ok: true; expectedFailure?: SearchResult<A>}
     | {ok: false; reason: 'counterexample'; counterexample: A; shrinks: number}
     | {ok: false; reason: 'insufficient coverage'; label: string}
-    | {
+    | ({
         ok: false
         reason: 'exception'
+        when: 'generating'
         exception: any
-        when: 'generating' | 'evaluating'
-        counterexample?: A
-      }
+      })
+    | ({
+        ok: false
+        reason: 'exception'
+        when: 'evaluating'
+        exception: any
+        counterexample: A
+        shrinks: number
+      })
     | {ok: false; reason: 'unexpected success'})
 
 export function Format(verbose: boolean = false, log: (...objs: any[]) => void) {
@@ -70,10 +77,10 @@ export function Format(verbose: boolean = false, log: (...objs: any[]) => void) 
             log(Utils.show(result.counterexample))
             return
           case 'exception':
-            log(`Exception when ${result.when} after ${result.tests}:`)
+            log(`Exception when ${result.when} after ${result.tests} tests:`)
             log(result.exception)
-            if (result.counterexample) {
-              log(`Exception occured with this input:`)
+            if (result.when == 'evaluating') {
+              log(`Exception occured with this input after ${result.shrinks} shrinks:`)
               log(Utils.show(result.counterexample))
             }
             return
@@ -245,28 +252,40 @@ export function search<A>(
         ...p.test_details(tests),
       })
     }
-    let current: A | undefined = undefined
-    const prop_ = (a: typeof t.top) => p.round(() => ((current = a), !prop(a, p.api)))
-    try {
-      const failtree = t.left_first_search(prop_, options.maxShrinks)
-      if (failtree) {
-        const shrinks =
-          options.maxShrinks == -1 ? -failtree.fuel : options.maxShrinks - failtree.fuel
-        return ret({
-          ...not_ok,
-          reason: 'counterexample',
-          counterexample: failtree.tree.top,
-          shrinks,
-          ...p.test_details(tests),
-        })
+    const evaluated = t.map((value): undefined | {value: A; exception?: any} => {
+      try {
+        const res = p.round(() => prop(value, p.api))
+        if (!res) {
+          return {value}
+        }
+      } catch (exception) {
+        return {value, exception}
       }
-    } catch (exception) {
+    })
+    const res = evaluated.left_first_search(x => x !== undefined, options.maxShrinks)
+    if (!res) {
+      continue
+    }
+    const top = res.tree.top
+    const shrinks = options.maxShrinks == -1 ? -res.fuel : options.maxShrinks - res.fuel
+    if (top === undefined) {
+      continue
+    } else if ('exception' in top) {
       return ret({
         ...not_ok,
         reason: 'exception',
-        exception,
+        exception: top.exception,
         when: 'evaluating',
-        counterexample: current,
+        counterexample: top.value,
+        shrinks,
+        ...p.test_details(tests),
+      })
+    } else {
+      return ret({
+        ...not_ok,
+        reason: 'counterexample',
+        counterexample: top.value,
+        shrinks,
         ...p.test_details(tests),
       })
     }
