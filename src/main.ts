@@ -35,6 +35,39 @@ export const forall = searchAndThen((res, options) => {
   }
 })
 
+export interface TestCreator<R> {
+  (description: string, callback: () => void): R
+  only(description: string, callback: () => void): R
+  skip(description: string, callback: () => void): void
+}
+
+export type TestFunction<P, R> = <A>(
+  description: string,
+  g: Gen<A>,
+  prop: (a: A, p: Property) => P,
+  options?: Options
+) => R
+
+export type PropertyCreator<P, R> = TestFunction<P, R> & {
+  only: TestFunction<P, R>
+  skip: TestFunction<P, void>
+}
+
+export function createProperty<R>(test: TestCreator<R>): PropertyCreator<boolean, R> {
+  const testCreator: any = ((description, g, prop, options?) => {
+    test(description, () => forall(g, prop, options))
+  }) as TestFunction<boolean, R>
+  const only: TestFunction<boolean, R> = (description, g, prop, options?) => {
+    return test.only(description, () => forall(g, prop, options))
+  }
+  const skip: TestFunction<boolean, void> = (description, g, prop, options) => {
+    return test.skip(description, () => forall(g, prop, options))
+  }
+  testCreator.only = only
+  testCreator.skip = skip
+  return testCreator
+}
+
 export interface TestCase {
   true(x: any): void
   end(): void
