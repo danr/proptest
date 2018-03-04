@@ -216,9 +216,9 @@ qc('permute', Gen.permute(Utils.range(5)), (xs, p) => {
   return true
 })
 
-test('forall throws on false prop', t => {
+test('forall throws Error on false prop', t => {
   t.plan(1)
-  t.throws(() => QC.forall(Gen.pos, x => x < 5))
+  t.throws(() => QC.forall(Gen.pos, x => x < 5), Error)
 })
 
 test("forall doesn't throw on true prop", t => {
@@ -231,8 +231,8 @@ test('forall exception contains the counterexample', t => {
   try {
     QC.forall(Gen.oneof([Gen.of('apabepa'), Gen.alpha]), x => x != 'apabepa')
   } catch (e) {
-    t.true(e.match(/^Counterexample found/m))
-    t.true(e.match(/^"apabepa"/m))
+    t.true(e.message.toString().match(/^Counterexample found/m))
+    t.true(e.message.toString().match(/^"apabepa"/m))
   }
 })
 
