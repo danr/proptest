@@ -168,20 +168,6 @@ test('forall exception contains the counterexample', t => {
   }
 })
 
-// // Fails to either shrink or find counterexample in this range:
-// const is = Utils.fromTo(80, 90)
-const is = Utils.fromTo(70, 80)
-is.forEach(i => {
-  test('shrinking to list of length ' + i, t => {
-    t.plan(1)
-    const r = QC.search(Gen.bin.array(), xs => xs.length < i)
-    if (!r.ok && r.reason == 'counterexample') {
-      // console.log(r.shrinks)
-      t.equals(r.counterexample.length, i)
-    }
-  })
-})
-
 /*
 
 const STree = <A>(g: Gen<A>) => GTree(g).map(t => t.force())
@@ -201,4 +187,3 @@ Utils.fromTo(1,20).map(i =>
     })
   )
   */
-
