@@ -1,5 +1,5 @@
-import {Gen} from '../src/main'
 import * as QC from '../src/main'
+import * as Gen from '../src/main'
 import * as Utils from '../src/Utils'
 import * as test from 'tape'
 

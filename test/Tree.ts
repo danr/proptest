@@ -1,13 +1,13 @@
-import {Gen} from '../src/main'
 import {Tree} from '../src/Tree'
 import * as QC from '../src/main'
+import * as Gen from '../src/main'
 import * as test from 'tape'
 
 const check = QC.tape_adapter(test)
 
-const GTree = <A>(g: Gen<A>) =>
+const GTree = <A>(g: QC.Gen<A>) =>
   Gen.nat.chain(s0 => {
-    function go(s: number): Gen<Tree<A>> {
+    function go(s: number): QC.Gen<Tree<A>> {
       return Gen.frequency([
         [1, g.map(Tree.of)],
         [
