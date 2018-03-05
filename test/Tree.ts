@@ -1,4 +1,5 @@
-import {Tree} from '../src/Tree'
+import {Tree, shrinkNumber} from '../src/Tree'
+import * as Lz from '../src/lazylist'
 import * as QC from '../src/main'
 import * as Gen from '../src/main'
 import * as test from 'tape'
@@ -16,7 +17,7 @@ const GTree = <A>(g: QC.Gen<A>) =>
             Gen.between(2, 5).chain(n =>
               go(Math.max(0, Math.round(s / n)))
                 .replicate(n)
-                .map(tree => new Tree(top, () => tree))
+                .map(tree => new Tree(top, Lz.fromArray(tree)))
             )
           ),
         ],
@@ -37,3 +38,14 @@ check('tree join left', GTree(Gen.nat), (t, p) =>
 check('tree join right', GTree(Gen.bin), (t, p) =>
   p.equals(t.chain(j => Tree.of(j)).force(), t.force())
 )
+
+test('dfs only forces the path it takes', t => {
+  t.plan(1)
+  let called = 0
+  const tree = shrinkNumber(100000, 0).map(n => {
+    called++
+    return n
+  })
+  tree.left_first_search(n => n > 0)
+  t.ok(called < 22)
+})
