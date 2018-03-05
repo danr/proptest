@@ -4,7 +4,6 @@ import * as Utils from '../src/Utils'
 import * as test from 'tape'
 
 const check = QC.adaptTape(test)
-const checkOnly = QC.adaptTape(test.only)
 
 const string_permute = (s: string) => Gen.permute(s.split('')).map(xs => xs.join(''))
 
@@ -19,6 +18,8 @@ check(
   r => r.a < r.b,
   QC.expectFailure
 )
+
+check.skip('skips false property', Gen.of({}), _ => false)
 
 check(
   'lower-upper record',

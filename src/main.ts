@@ -84,10 +84,9 @@ export interface TapeTest {
   end(): void
 }
 
-/** Adapt tape using forallStrings */
-export function adaptTape(
+function _adapt_tape(
   test: (name: string, cb: (t: TapeTest) => void) => void
-): <A>(name: string, g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Options) => void {
+): TestFunction<boolean, void> {
   return (name, g, prop, options) =>
     test(name, t => {
       const res = forallStrings(g, prop, options)
@@ -102,4 +101,15 @@ export function adaptTape(
       }
       t.end()
     })
+}
+
+/** Adapt tape using forallStrings */
+export function adaptTape(
+  test: (name: string, cb: (t: TapeTest) => void) => void
+): PropertyCreator<boolean, void> {
+  const t: PropertyCreator<boolean, void> = _adapt_tape(test) as any
+  // typings for tape don't properly know there are only and skip methods
+  t.only = _adapt_tape((test as any).only)
+  t.skip = _adapt_tape((test as any).skip)
+  return t
 }
