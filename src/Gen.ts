@@ -76,6 +76,19 @@ export class Gen<A> {
   pow(exponent: number): Gen<A> {
     return pow(exponent, this)
   }
+
+  one(): Gen<[A]> {
+    return one(this)
+  }
+  two(): Gen<[A, A]> {
+    return two(this)
+  }
+  three(): Gen<[A, A, A]> {
+    return three(this)
+  }
+  four(): Gen<[A, A, A, A]> {
+    return four(this)
+  }
 }
 
 function seedToRandom(seed?: number): Random {
@@ -195,6 +208,19 @@ export function huge<A>(g: Gen<A>): Gen<A> {
 }
 export function pow<A>(exponent: number, g: Gen<A>): Gen<A> {
   return resize(x => Math.pow(x, exponent), g)
+}
+
+export function one<A>(g: Gen<A>): Gen<[A]> {
+  return g.replicate(1) as any
+}
+export function two<A>(g: Gen<A>): Gen<[A, A]> {
+  return g.replicate(2) as any
+}
+export function three<A>(g: Gen<A>): Gen<[A, A, A]> {
+  return g.replicate(3) as any
+}
+export function four<A>(g: Gen<A>): Gen<[A, A, A, A]> {
+  return g.replicate(4) as any
 }
 
 //////////////////////////////////////////////////////////////////////

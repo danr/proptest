@@ -78,6 +78,11 @@ check('gen join right', Gen.record({i: Gen.bin, seed: Gen.nat, size: Gen.pos}), 
   )
 )
 
+check('one', Gen.bin.one(), xs => xs.length == 1)
+check('two', Gen.bin.two(), xs => xs.length == 2)
+check('three', Gen.bin.three(), xs => xs.length == 3)
+check('four', Gen.bin.four(), xs => xs.length == 4)
+
 check('nat', Gen.nat, x => x >= 0)
 check('nat', Gen.nat, x => x > 0, QC.expectFailure)
 check('nat', Gen.nat, x => x < 0, QC.expectFailure)
