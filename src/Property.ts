@@ -236,7 +236,7 @@ export function search<A>(
       return res
     }
   }
-  for (let tests = 0; tests < options.tests; ++tests) {
+  for (let tests = 1; tests <= options.tests; ++tests) {
     let t: Tree<A>
     try {
       t = g.sampleWithShrinks(
