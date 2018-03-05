@@ -147,6 +147,7 @@ export function frequencyLazy<A>(table: [number, () => Gen<A>][]): Gen<A> {
 //////////////////////////////////////////////////////////////////////
 // Member generator combinators
 
+/** The constant generator: always generates the supplied value */
 export function of<A>(a: A): Gen<A> {
   return Gen.of(a)
 }
