@@ -29,7 +29,7 @@ export const stdoutForall = searchAndThen((res, options) => {
 })
 
 /** Searches for a counterexample and throws an error if one is found */
-export const forall = searchAndThen((res, options) => {
+export const assertForall = searchAndThen((res, options) => {
   if (!res.ok) {
     const w = P.Write(options.verbose)
     w.SearchResult(res)
@@ -64,13 +64,13 @@ export type PropertyCreator<P, R> = TestFunction<P, R> & {
 
 export function createProperty<R>(test: TestCreator<R>): PropertyCreator<boolean, R> {
   const testCreator: any = ((description, g, prop, options?) => {
-    test(description, () => forall(g, prop, options))
+    test(description, () => assertForall(g, prop, options))
   }) as TestFunction<boolean, R>
   const only: TestFunction<boolean, R> = (description, g, prop, options?) => {
-    return test.only(description, () => forall(g, prop, options))
+    return test.only(description, () => assertForall(g, prop, options))
   }
   const skip: TestFunction<boolean, void> = (description, g, prop, options) => {
-    return test.skip(description, () => forall(g, prop, options))
+    return test.skip(description, () => assertForall(g, prop, options))
   }
   testCreator.only = only
   testCreator.skip = skip
