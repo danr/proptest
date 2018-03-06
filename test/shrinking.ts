@@ -1,6 +1,7 @@
 import * as QC from '../src/main'
 import * as Gen from '../src/main'
 import * as Utils from '../src/Utils'
+import * as Tree from '../src/Tree'
 import * as test from 'tape'
 
 {
@@ -36,3 +37,28 @@ import * as test from 'tape'
     })
   })
 }
+
+test(`shrinking finds counter example in few steps`, t => {
+  t.plan(2)
+  let found = false
+  let called = 0
+  const r = QC.search(
+    Gen.natural,
+    x => {
+      const result = 10 < x && x < 10000
+      if (result === false) {
+        if (found) {
+          called++
+        } else {
+          found = true
+        }
+      }
+      return result
+    },
+    QC.option({maxShrinks: 1000})
+  )
+  t.ok(called < 20)
+  if (!r.ok && r.reason == 'counterexample') {
+    t.deepEquals(r.counterexample, 0)
+  }
+})

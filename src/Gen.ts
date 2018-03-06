@@ -29,12 +29,14 @@ export class Gen<A> {
   withTree<B>(f: (ta: Tree<A>) => Tree<B>): Gen<B> {
     return new Gen(env => f(this.gen(env)))
   }
+  /*
   replaceShrinks(f: (forest: Tree<A>[]) => Tree<A>[]): Gen<A> {
     return new Gen(env => {
       const {top, forest} = this.gen(env)
       return new Tree(top, () => f(forest()))
     })
   }
+  */
 
   sample(size = 10, seed?: number): A {
     return this.sampleWithShrinks(size, seed).top

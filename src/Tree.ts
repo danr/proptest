@@ -1,4 +1,6 @@
 import * as Utils from './Utils'
+import {LazyList} from './lazylist'
+import * as Lz from './lazylist'
 
 export interface StrictTree<A> {
   readonly top: A
@@ -6,22 +8,22 @@ export interface StrictTree<A> {
 }
 
 export class Tree<A> {
-  constructor(readonly top: A, readonly forest: () => Tree<A>[]) {}
+  constructor(readonly top: A, readonly forest: LazyList<Tree<A>>) {}
   static of<A>(a: A): Tree<A> {
-    return new Tree(a, () => [])
+    return new Tree(a, Lz.nil)
   }
-  static tree<A>(top: A, forest: () => Tree<A>[]): Tree<A> {
+  static tree<A>(top: A, forest: LazyList<Tree<A>>): Tree<A> {
     return new Tree(top, forest)
   }
   static tree$<A>(top: A, forest: Tree<A>[]): Tree<A> {
-    return new Tree(top, () => forest)
+    return new Tree(top, Lz.fromArray(forest))
   }
   map<B>(f: (a: A) => B): Tree<B> {
     return this.chain((a: A) => Tree.of(f(a)))
   }
   chain<B>(f: (a: A) => Tree<B>): Tree<B> {
     const t = f(this.top)
-    return new Tree(t.top, () => [...this.forest().map(t => t.chain(f)), ...t.forest()])
+    return new Tree(t.top, Lz.concat(Lz.map(t => t.chain(f), this.forest), t.forest))
   }
 
   left_first_pair<B>(tb: Tree<B>): Tree<[A, B]> {
@@ -44,11 +46,12 @@ export class Tree<A> {
   /** distribute fairly */
   static dist<T extends Record<string, any>>(trees: {[K in keyof T]: Tree<T[K]>}): Tree<T> {
     const keys: (keyof T)[] = Object.keys(trees)
-    function shrink_one(k: keyof T): Tree<T>[] {
-      return trees[k].forest().map(t => Tree.dist({...(trees as any), [k]: t}) as Tree<T>)
+    function shrink_one(k: keyof T): LazyList<Tree<T>> {
+      return Lz.map(t => Tree.dist({...(trees as any), [k]: t}) as Tree<T>, trees[k].forest)
     }
-    return new Tree<T>(Utils.dict(keys, k => trees[k].top), () =>
-      Utils.flatten(keys.map(shrink_one))
+    return new Tree<T>(
+      Utils.dict(keys, k => trees[k].top),
+      Lz.flatten(Lz.map(shrink_one, Lz.fromArray(keys)))
     )
   }
 
@@ -62,7 +65,7 @@ export class Tree<A> {
   force(depth: number = -1): StrictTree<A> {
     return {
       top: this.top,
-      forest: depth == 0 ? [] : this.forest().map(t => t.force(depth - 1)),
+      forest: depth == 0 ? [] : Lz.toArray(this.forest).map(t => t.force(depth - 1)),
     }
   }
 }
@@ -100,7 +103,7 @@ export function shrinkNumber(n: number, towards: number = 0): Tree<number> {
       for (let j = i - 1, c = 0; j > Math.ceil(i / 2) && c < range; j--, c++) {
         candidates.push(j)
       }
-      return new Tree(i, () => candidates.map(go))
+      return new Tree(i, Lz.map(go, Lz.fromArray(candidates)))
     })(n)
   }
 }
@@ -111,15 +114,16 @@ export function dfs<A>(
   tree: Tree<A>,
   fuel: number
 ): {tree: Tree<A>; fuel: number} | undefined {
-  const forest = tree.forest()
-  for (let i = 0; i < forest.length; i++) {
+  let child = Lz.force(tree.forest)
+  while (child !== undefined) {
     if (fuel == 0) {
       break
     }
     fuel--
-    if (p(forest[i].top)) {
-      return dfs(p, forest[i], fuel)
+    if (p(child.head.top)) {
+      return dfs(p, child.head, fuel)
     }
+    child = Lz.force(child.tail)
   }
   return {tree, fuel}
 }
