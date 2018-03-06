@@ -54,7 +54,7 @@ export function iterate<A>(init: A, loop: (a: A) => A): LazyList<A> {
   })
 }
 
-export function takeWhile<A>( p: (a: A) => boolean, ls: LazyList<A>): LazyList<A> {
+export function takeWhile<A>(p: (a: A) => boolean, ls: LazyList<A>): LazyList<A> {
   return thunk(() => {
     const as = force(ls)
     return as && p(as.head) ? {head: as.head, tail: takeWhile(p, as.tail)} : undefined

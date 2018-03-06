@@ -72,21 +72,33 @@ export class Tree<A> {
 
 const resolution = 0.01
 
+// less(a, b) is "morally" abs a < abs b, but taking care of overflow.
+function less(a: number, b: number): boolean {
+  const nna = a >= 0
+  const nnb = b >= 0
+
+  if (nna && nnb) {
+    return a < b
+  } else if (!nna && !nnb) {
+    return a > b
+  } else if (nna && !nnb) {
+    return a + b < 0
+  } else {
+    return a + b > 0
+  }
+}
+
+const half = (i: number) => Math.floor(i / 2)
+
+// https://github.com/nick8325/quickcheck/blob/0d547a497b6608c34310ab604f63e4ee6721fd21/Test/QuickCheck/Arbitrary.hs#L1079
 function halves(x: number): Lz.LazyList<number> {
   if (x != Math.round(x)) {
     return halves(Math.round(x))
   }
-  function less(a: number, b: number): boolean {
-    const nna = a >= 0
-    const nnb = b >= 0
-
-        if (nna &&   nnb)  { return  a < b }
-        else if (!nna && !nnb) { return  a > b }
-        else if (nna &&   !nnb) { return  a + b < 0 }
-        else   { return  a + b > 0 }
-  }
-  const half = (i: number) => Math.floor(i / 2)
-  return Lz.takeWhile<number>(i => less(i, x), Lz.cons(0, Lz.map(i => x - i, Lz.iterate(half(x), half))))
+  return Lz.takeWhile<number>(
+    i => less(i, x),
+    Lz.cons(0, Lz.map(i => x - i, Lz.iterate(half(x), half)))
+  )
 }
 
 export function shrinkNumber(n: number, towards: number = 0): Tree<number> {
