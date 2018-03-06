@@ -4,13 +4,11 @@ import {Gen} from './Gen'
 
 export type TestDetails = {
   covers: Covers
-  stamps: Stamps
   log: any[][]
   tests: number
 }
 export type CoverData = {req: number; hit: number; miss: number}
 export type Covers = Record<string, CoverData>
-export type Stamps = Record<string, number>
 
 export function expand_cover_data(data: CoverData) {
   const N = data.hit + data.miss
@@ -42,11 +40,6 @@ export type SearchResult<A> = TestDetails &
 
 export function Format(verbose: boolean = false, log: (...objs: any[]) => void) {
   return {
-    Stamps(details: TestDetails) {
-      Utils.record_traverse(details.stamps, (occs, stamp) => ({occs, stamp}))
-        .sort((x, y) => y.occs - x.occs)
-        .map(({occs, stamp}) => log(Utils.pct(100 * occs / details.tests), stamp))
-    },
     LastLog(details: TestDetails) {
       details.log.forEach(objs => log(...objs))
     },
@@ -64,8 +57,6 @@ export function Format(verbose: boolean = false, log: (...objs: any[]) => void) 
           log(`(expected failure)`)
         } else {
           log(`passed ${result.tests} tests`)
-          verbose && this.Covers(result)
-          this.Stamps(result)
         }
       } else {
         switch (result.reason) {
@@ -117,15 +108,12 @@ export interface Property {
   equals(lhs: any, rhs: any): boolean
   cover(pred: boolean, required_percentage: number, label: string): void
   fail(msg: any): void
-  label(stamp: string | any): void
   log(...msg: any[]): void
   tap<A>(x: A, msg?: string): A
 }
 
 function initProperty() {
   let current_log: any[][] = []
-  let current_stamps: Record<string, boolean> = {}
-  const stamps: Record<string, number> = {}
   let current_cover: Record<string, boolean> = {}
   const cover_req: Record<string, number> = {}
   const cover_hit: Record<string, number> = {}
@@ -141,9 +129,6 @@ function initProperty() {
       },
       log(...msg) {
         current_log.push(msg)
-      },
-      label(stamp) {
-        current_stamps[Utils.serialize(stamp)] = true
       },
       cover(pred, req, label) {
         const req0 = cover_req[label]
@@ -181,18 +166,14 @@ function initProperty() {
     } as Property,
     round(f: () => boolean): boolean {
       current_log = []
-      current_stamps = {}
       current_cover = {}
-      const res = f()
-      Utils.record_forEach(current_stamps, (b, stamp) => b && Utils.succ(stamps, stamp))
-      return res
+      return f()
     },
     last_log() {
       return current_log
     },
     test_details(tests: number, log: any[][]): TestDetails {
       return {
-        stamps,
         covers: Utils.record_map(cover_req, (req, label) => ({
           req,
           hit: cover_hit[label],
