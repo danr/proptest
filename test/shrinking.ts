@@ -95,3 +95,20 @@ check(
   },
   QC.option({tests: 20})
 )
+
+test('smallest failing log returned after shrinking', t => {
+  let last: null | number =  null
+  const r = QC.search(Gen.natural, (x, p) => {
+    last = x
+    p.log(x)
+    return x < 84000
+  })
+  if (!r.ok && r.reason == 'counterexample') {
+    t.equal(r.counterexample, 84000)
+    t.deepEqual(r.log, [[84000]])
+    t.deepEqual(last, 83999)
+    t.end()
+  } else {
+    t.fail()
+  }
+})

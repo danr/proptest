@@ -5,7 +5,7 @@ import {Gen} from './Gen'
 export type TestDetails = {
   covers: Covers
   stamps: Stamps
-  last_log: any[][]
+  log: any[][]
   tests: number
 }
 export type CoverData = {req: number; hit: number; miss: number}
@@ -48,7 +48,7 @@ export function Format(verbose: boolean = false, log: (...objs: any[]) => void) 
         .map(({occs, stamp}) => log(Utils.pct(100 * occs / details.tests), stamp))
     },
     LastLog(details: TestDetails) {
-      details.last_log.forEach(objs => log(...objs))
+      details.log.forEach(objs => log(...objs))
     },
     Covers(details: TestDetails) {
       Utils.record_forEach(details.covers, (data, label) => {
@@ -123,10 +123,10 @@ export interface Property {
 }
 
 function initProperty() {
-  let last_log: any[][] = []
-  let last_stamps: Record<string, boolean> = {}
+  let current_log: any[][] = []
+  let current_stamps: Record<string, boolean> = {}
   const stamps: Record<string, number> = {}
-  let last_cover: Record<string, boolean> = {}
+  let current_cover: Record<string, boolean> = {}
   const cover_req: Record<string, number> = {}
   const cover_hit: Record<string, number> = {}
   const cover_miss: Record<string, number> = {}
@@ -135,25 +135,25 @@ function initProperty() {
   return {
     api: {
       tap(x, msg) {
-        msg && last_log.push([msg, Utils.show(x)])
-        msg || last_log.push([Utils.show(x)])
+        msg && current_log.push([msg, Utils.show(x)])
+        msg || current_log.push([Utils.show(x)])
         return x
       },
       log(...msg) {
-        last_log.push(msg)
+        current_log.push(msg)
       },
       label(stamp) {
-        last_stamps[Utils.serialize(stamp)] = true
+        current_stamps[Utils.serialize(stamp)] = true
       },
       cover(pred, req, label) {
         const req0 = cover_req[label]
         if (req0 !== undefined && req0 != req) {
           throw `Different coverage requirements for ${label}: ${req0} and ${req}`
         }
-        if (last_cover[label]) {
+        if (current_cover[label]) {
           throw `Label already registered: ${label}`
         }
-        last_cover[label] = true
+        current_cover[label] = true
         cover_req[label] = req
         if (pred) {
           Utils.succ(cover_hit, label)
@@ -180,26 +180,25 @@ function initProperty() {
       },
     } as Property,
     round(f: () => boolean): boolean {
-      const init_log = last_log
-      last_log = []
-      last_stamps = {}
-      last_cover = {}
+      current_log = []
+      current_stamps = {}
+      current_cover = {}
       const res = f()
-      Utils.record_forEach(last_stamps, (b, stamp) => b && Utils.succ(stamps, stamp))
-      if (!res) {
-        last_log = init_log
-      }
+      Utils.record_forEach(current_stamps, (b, stamp) => b && Utils.succ(stamps, stamp))
       return res
     },
-    test_details(tests: number): TestDetails {
+    last_log() {
+      return current_log
+    },
+    test_details(tests: number, log: any[][]): TestDetails {
       return {
         stamps,
-        last_log,
         covers: Utils.record_map(cover_req, (req, label) => ({
           req,
           hit: cover_hit[label],
           miss: cover_miss[label],
         })),
+        log,
         tests,
       }
     },
@@ -234,6 +233,7 @@ export function search<A>(
 ): SearchResult<A> {
   const p = initProperty()
   const not_ok = {ok: false as false}
+  let log: any[][] = []
   function ret(res: SearchResult<A>): SearchResult<A> {
     if (options.expectFailure) {
       if (res.ok) {
@@ -259,16 +259,18 @@ export function search<A>(
         reason: 'exception',
         exception,
         when: 'generating',
-        ...p.test_details(tests),
+        ...p.test_details(tests, []),
       })
     }
     const evaluated = t.map((value): undefined | {value: A; exception?: any} => {
       try {
         const res = p.round(() => prop(value, p.api))
         if (!res) {
+          log = p.last_log()
           return {value}
         }
       } catch (exception) {
+        log = p.last_log()
         return {value, exception}
       }
     })
@@ -288,7 +290,7 @@ export function search<A>(
         when: 'evaluating',
         counterexample: top.value,
         shrinks,
-        ...p.test_details(tests),
+        ...p.test_details(tests, log),
       })
     } else {
       return ret({
@@ -296,11 +298,11 @@ export function search<A>(
         reason: 'counterexample',
         counterexample: top.value,
         shrinks,
-        ...p.test_details(tests),
+        ...p.test_details(tests, log),
       })
     }
   }
-  const test_details = p.test_details(options.tests)
+  const test_details = p.test_details(options.tests, [])
   for (const {data, label} of Utils.record_traverse(test_details.covers, (data, label) => ({
     data,
     label,
