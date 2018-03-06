@@ -18,7 +18,7 @@ const property = QC.createProperty(it)
 describe('f', () => {
   property(
     'is commutative',
-    QC.nat.pair(),
+    QC.nat.two(),
     ([x, y]) => (expect(f(x, y)).toEqual(f(y, x)), true)
   )
 })
@@ -31,14 +31,14 @@ describe('f', () => {
 ```typescript
 const check = QC.adaptTape(test)
 
-check('f commutative', QC.nat.pair(), ([x, y]) => f(x, y) === f(y, x))
+check('f commutative', QC.nat.two(), ([x, y]) => f(x, y) === f(y, x))
 ```
 
 #### Usage with AVA
 
 ```typescript
 test('f commutative', t => {
-  t.true(QC.stdoutForall(QC.nat.pair(), ([x, y]) => f(x, y) === f(y, x)))
+  t.true(QC.stdoutForall(QC.nat.two(), ([x, y]) => f(x, y) === f(y, x)))
 })
 ```
 
@@ -47,7 +47,7 @@ test('f commutative', t => {
 #### Usage without a library as an assertion
 
 ```typescript
-QC.assertForall(QC.nat.pair(), ([x, y]) => f(x, y) === f(y, x))
+QC.assertForall(QC.nat.two(), ([x, y]) => f(x, y) === f(y, x))
 ```
 
 
