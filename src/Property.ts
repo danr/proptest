@@ -38,7 +38,7 @@ export type SearchResult<A> = TestDetails &
       })
     | {ok: false; reason: 'unexpected success'})
 
-export function Format(verbose: boolean = false, log: (...objs: any[]) => void) {
+export function Format(log: (...objs: any[]) => void) {
   return {
     LastLog(details: TestDetails) {
       details.log.forEach(objs => log(...objs))
@@ -74,7 +74,6 @@ export function Format(verbose: boolean = false, log: (...objs: any[]) => void) 
             break
           case 'insufficient coverage':
             log(`Insufficient coverage for label ${result.label}`)
-            verbose || this.Covers(result)
             break
 
           case 'unexpected success':
@@ -84,19 +83,18 @@ export function Format(verbose: boolean = false, log: (...objs: any[]) => void) 
           default:
             const _: never = result
         }
-        verbose && this.Covers(result)
-        verbose && this.Stamps(result)
+        this.Covers(result)
         this.LastLog(result)
       }
     },
   }
 }
 
-export const Stdout = (verbose: boolean) => Format(verbose, (...msg) => console.log(...msg))
-export const Write = (verbose: boolean) => {
+export const Stdout = Format((...msg) => console.log(...msg))
+export const Write = () => {
   const messages: any[][] = []
   return {
-    ...Format(verbose, (...msg) => messages.push(msg)),
+    ...Format((...msg) => messages.push(msg)),
     messages,
   }
 }
@@ -191,7 +189,6 @@ export const default_options = {
   maxShrinks: 100,
   seed: 43 as number | undefined,
   expectFailure: false,
-  verbose: false,
 }
 
 export type Options = typeof default_options

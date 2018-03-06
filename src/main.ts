@@ -8,38 +8,36 @@ import {Gen} from './Gen'
 export {Gen}
 export * from './Gen'
 
-export function option(opts: Partial<Options>): Options {
-  return {...P.default_options, ...opts}
-}
-
-export const expectFailure = option({expectFailure: true})
-export const verbose = option({verbose: true})
-export const randomSeed = option({seed: undefined})
+export const expectFailure: Partial<Options> = {expectFailure: true}
+export const randomSeed: Partial<Options> = {seed: undefined}
+export const seed = (seed: number): Partial<Options> => ({seed})
+export const tests = (tests: number): Partial<Options> => ({tests})
+export const maxShrinks = (maxShrinks: number): Partial<Options> => ({maxShrinks})
 
 /** Searches for a counterexample and prints it on stdout if it is found.
 
 Returns whether a counterexample was found.
 
 TODO: Remove in favour of forallStrings? */
-export const stdoutForall = searchAndThen((res, options) => {
+export const stdoutForall = searchAndThen(res => {
   if (!res.ok) {
-    P.Stdout(options.verbose).SearchResult(res)
+    P.Stdout.SearchResult(res)
   }
   return res.ok
 })
 
 /** Searches for a counterexample and throws an error if one is found */
-export const assertForall = searchAndThen((res, options) => {
+export const assertForall = searchAndThen(res => {
   if (!res.ok) {
-    const w = P.Write(options.verbose)
+    const w = P.Write()
     w.SearchResult(res)
     throw new Error(w.messages.map(xs => xs.join(' ')).join('\n'))
   }
 })
 
 /** Searches for a counterexample and returns the result formatted as an array of strings */
-export const forallStrings = searchAndThen((res, options) => {
-  const w = P.Write(options.verbose)
+export const forallStrings = searchAndThen(res => {
+  const w = P.Write()
   w.SearchResult(res)
   return {ok: res.ok, messages: w.messages.map(xs => xs.join(' '))}
 })
@@ -92,7 +90,6 @@ function _adapt_tape(
       const res = forallStrings(g, prop, options)
       const [head, ...tail] = res.messages
       if (res.ok) {
-        options && options.verbose && tail.forEach(msg => (t as any).comment(msg))
         t.pass(head)
       }
       if (!res.ok) {
