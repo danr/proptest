@@ -97,7 +97,7 @@ check(
 )
 
 test('smallest failing log returned after shrinking', t => {
-  let last: null | number =  null
+  let last: null | number = null
   const r = QC.search(Gen.natural, (x, p) => {
     last = x
     p.log(x)
