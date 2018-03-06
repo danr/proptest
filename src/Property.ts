@@ -216,6 +216,16 @@ export const default_options = {
 
 export type Options = typeof default_options
 
+export function testSize(test: number, numTests: number): number {
+  const subtract = 100 * Math.floor(test / 100)
+  if (subtract > 0) {
+    return testSize(test - subtract, numTests - subtract)
+  } else {
+    const factor = 100 / Math.min(100, numTests)
+    return 1 + test * factor
+  }
+}
+
 /** Searches for a counterexample and returns as most information as possible. */
 export function search<A>(
   g: Gen<A>,
@@ -240,7 +250,7 @@ export function search<A>(
     let t: Tree<A>
     try {
       t = g.sampleWithShrinks(
-        tests % 100,
+        testSize(tests - 1, options.tests),
         options.seed === undefined ? undefined : tests + options.seed
       )
     } catch (exception) {
