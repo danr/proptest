@@ -68,7 +68,7 @@ check('binary search natural', Gen.natural.map(i => Math.ceil(i * 0.75)), i => {
   }
 })
 
-check('binary search natural', Gen.floatBetween(0, 1 << 29), i => {
+check('binary search float', Gen.floatBetween(0, 1 << 29), i => {
   const r = QC.search(Gen.floatBetween(0, 1 << 30), x => x < i, QC.option({maxShrinks: 500}))
   if (!r.ok && r.reason == 'counterexample') {
     const d = Math.abs(r.counterexample - i)
