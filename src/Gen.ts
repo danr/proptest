@@ -234,8 +234,8 @@ export function range(max: number): Gen<number> {
 }
 
 /** max exclusive */
-export function rangeFloat(max: number = 1): Gen<number> {
-  return betweenFloat(0, max)
+export function floatRange(max: number = 1): Gen<number> {
+  return floatBetween(0, max)
 }
 
 /** hi inclusive */
@@ -244,7 +244,7 @@ export function between(lo: number, hi: number): Gen<number> {
 }
 
 /** hi exclusive */
-export function betweenFloat(lo: number, hi: number): Gen<number> {
+export function floatBetween(lo: number, hi: number): Gen<number> {
   return _between(lo, hi, (rng, lo, hi) => rng.real(lo, hi))
 }
 
