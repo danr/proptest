@@ -10,7 +10,7 @@ Haskell library but works well in languages without typeclasses.
 (The same approach is taken in other implementations
 such as Hedgehog for Haskell, Hypothesis for Python and test.check for Clojure)
 
-#### Usage with mocha/jest
+#### Usage with mocha and jest
 
 ```typescript
 const property = QC.createProperty(it)
@@ -26,15 +26,23 @@ describe('f', () => {
 
 (to be improved; remove returning a boolean: [discussion](https://github.com/danr/ts-quickcheck/pull/6#issuecomment-370249397))
 
-#### Usage with tape/ava
+#### Usage with tape
+
+```typescript
+const check = QC.adaptTape(test)
+
+check('f commutative', QC.nat.pair(), ([x, y]) => f(x, y) === f(y, x))
+```
+
+#### Usage with AVA
 
 ```typescript
 test('f commutative', t => {
-    t.true(QC.stdoutForall(QC.nat.pair(), ([x, y]) => f(x, y) === f(y, x)))
+  t.true(QC.stdoutForall(QC.nat.pair(), ([x, y]) => f(x, y) === f(y, x)))
 })
 ```
 
-(to be improved)
+(to be improved, also see [ava#1692](https://github.com/avajs/ava/issues/1692))
 
 #### Usage without a library as an assertion
 
