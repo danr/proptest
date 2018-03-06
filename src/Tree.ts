@@ -90,6 +90,7 @@ function less(a: number, b: number): boolean {
 
 const half = (i: number) => Math.floor(i / 2)
 
+// This is Test.QuickCheck.Arbitrary.shrinkIntegral from Haskell QuickCheck:
 // https://github.com/nick8325/quickcheck/blob/0d547a497b6608c34310ab604f63e4ee6721fd21/Test/QuickCheck/Arbitrary.hs#L1079
 function halves(x: number): Lz.LazyList<number> {
   if (x != Math.round(x)) {
