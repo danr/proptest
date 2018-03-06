@@ -184,14 +184,14 @@ function initProperty() {
   }
 }
 
-export const default_options = {
+export const defaultOptions = {
   tests: 100,
   maxShrinks: 100,
   seed: 43 as number | undefined,
   expectFailure: false,
 }
 
-export type Options = typeof default_options
+export type Options = typeof defaultOptions
 
 export function testSize(test: number, numTests: number): number {
   const subtract = 100 * Math.floor(test / 100)
@@ -207,13 +207,14 @@ export function testSize(test: number, numTests: number): number {
 export function search<A>(
   g: Gen<A>,
   prop: (a: A, p: Property) => boolean,
-  options = default_options
+  options?: Partial<Options>
 ): SearchResult<A> {
+  const opts = {...defaultOptions, ...(options || {})}
   const p = initProperty()
   const not_ok = {ok: false as false}
   let log: any[][] = []
   function ret(res: SearchResult<A>): SearchResult<A> {
-    if (options.expectFailure) {
+    if (opts.expectFailure) {
       if (res.ok) {
         const {expectedFailure, ...rest} = res
         return {...rest, ...not_ok, reason: 'unexpected success'}
@@ -224,12 +225,12 @@ export function search<A>(
       return res
     }
   }
-  for (let tests = 1; tests <= options.tests; ++tests) {
+  for (let tests = 1; tests <= opts.tests; ++tests) {
     let t: Tree<A>
     try {
       t = g.sampleWithShrinks(
-        testSize(tests - 1, options.tests),
-        options.seed === undefined ? undefined : tests + options.seed
+        testSize(tests - 1, opts.tests),
+        opts.seed === undefined ? undefined : tests + opts.seed
       )
     } catch (exception) {
       return ret({
@@ -252,12 +253,12 @@ export function search<A>(
         return {value, exception}
       }
     })
-    const res = evaluated.left_first_search(x => x !== undefined, options.maxShrinks)
+    const res = evaluated.left_first_search(x => x !== undefined, opts.maxShrinks)
     if (!res) {
       continue
     }
     const top = res.tree.top
-    const shrinks = options.maxShrinks == -1 ? -res.fuel : options.maxShrinks - res.fuel
+    const shrinks = opts.maxShrinks == -1 ? -res.fuel : opts.maxShrinks - res.fuel
     if (top === undefined) {
       continue
     } else if ('exception' in top) {
@@ -280,7 +281,7 @@ export function search<A>(
       })
     }
   }
-  const test_details = p.test_details(options.tests, [])
+  const test_details = p.test_details(opts.tests, [])
   for (const {data, label} of Utils.record_traverse(test_details.covers, (data, label) => ({
     data,
     label,
@@ -299,7 +300,7 @@ export function search<A>(
 }
 
 export function searchAndThen<R>(
-  then: <A>(a: SearchResult<A>, options: Options) => R
-): <A>(g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Options) => R {
-  return (g, prop, options) => then(search(g, prop, options), options || default_options)
+  then: <A>(a: SearchResult<A>) => R
+): <A>(g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Partial<Options>) => R {
+  return (g, prop, options) => then(search(g, prop, options))
 }

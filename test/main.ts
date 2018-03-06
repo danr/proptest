@@ -47,10 +47,9 @@ check(
     const k = (r: typeof a) => Utils.record_traverse(r, (v, k) => ({k, v}))
     return p.equals(k(a).concat(k(b)), k({...a, ...b}))
   },
-  QC.option({
-    expectFailure: true,
-    maxShrinks: 10, // shrinking is very slow for this example so let's disable it for now
-  })
+  {...QC.expectFailure,
+   ...QC.maxShrinks(10), // shrinking is very slow for this example so let's disable it for now
+  }
 )
 
 check('traverse homomorphic with no overlap', Gen.nat.pojo().replicate(2), ([a, b], p) => {
@@ -152,17 +151,17 @@ Utils.record_forEach(u32gens, (g, name) => {
       p.cover(x >= mid, 49, 'big')
       return true
     },
-    QC.option({tests: 10000})
+    QC.tests(10000)
   )
 
-  check('u32 range ' + name, g, x => within(0, x, ~(1 << 31)), QC.option({tests: 10000}))
+  check('u32 range ' + name, g, x => within(0, x, ~(1 << 31)), QC.tests(10000))
 })
 
 check(
   'integer negative distribution',
   QC.integer,
   (x, p) => p.cover(x < 0, 49, 'negative') || true,
-  QC.option({tests: 10000})
+  QC.tests(10000)
 )
 
 test('unexpected success', t => {

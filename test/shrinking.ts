@@ -10,7 +10,7 @@ check('shrinks to a small list of small nats', Gen.nat.array().small(), (target,
   const r = QC.search(
     Gen.nat.replicate(target.length),
     xs => xs.some((x, i) => x < target[i]),
-    QC.option({maxShrinks: 1000})
+    QC.maxShrinks(1000)
   )
   if (!r.ok && r.reason == 'counterexample') {
     return p.equals(r.counterexample, target)
@@ -24,14 +24,14 @@ check(
   Gen.nat,
   (i, p) => {
     const target = Utils.range(i).map(_ => 0)
-    const r = QC.search(Gen.bin.array().big(), xs => xs.length < i, QC.option({maxShrinks: i * 20}))
+    const r = QC.search(Gen.bin.array().big(), xs => xs.length < i, QC.maxShrinks(i * 20))
     if (!r.ok && r.reason == 'counterexample') {
       return p.equals(r.counterexample, target)
     } else {
       return false
     }
   },
-  QC.option({tests: 20})
+  QC.tests(20)
 )
 
 test(`shrinking finds counter example in few steps`, t => {
@@ -51,7 +51,7 @@ test(`shrinking finds counter example in few steps`, t => {
       }
       return result
     },
-    QC.option({maxShrinks: 1000})
+    QC.maxShrinks(1000)
   )
   t.ok(called < 25)
   if (!r.ok && r.reason == 'counterexample') {
@@ -60,7 +60,7 @@ test(`shrinking finds counter example in few steps`, t => {
 })
 
 check('binary search natural', Gen.natural.map(i => Math.ceil(i * 0.75)), i => {
-  const r = QC.search(Gen.natural, x => x < i, QC.option({maxShrinks: 500}))
+  const r = QC.search(Gen.natural, x => x < i, QC.maxShrinks(500))
   if (!r.ok && r.reason == 'counterexample') {
     return r.counterexample === i
   } else {
@@ -69,7 +69,7 @@ check('binary search natural', Gen.natural.map(i => Math.ceil(i * 0.75)), i => {
 })
 
 check('binary search float', Gen.floatBetween(0, 1 << 29), i => {
-  const r = QC.search(Gen.floatBetween(0, 1 << 30), x => x < i, QC.option({maxShrinks: 500}))
+  const r = QC.search(Gen.floatBetween(0, 1 << 30), x => x < i, QC.maxShrinks(500))
   if (!r.ok && r.reason == 'counterexample') {
     const d = Math.abs(r.counterexample - i)
     return d < 1
@@ -85,7 +85,7 @@ check(
     const r = QC.search(
       Gen.natural.three(),
       xs => xs.some((x, i) => x < is[i]),
-      QC.option({maxShrinks: 5000})
+      QC.maxShrinks(5000)
     )
     if (!r.ok && r.reason == 'counterexample') {
       return p.equals(r.counterexample, is)
@@ -93,7 +93,7 @@ check(
       return false
     }
   },
-  QC.option({tests: 20})
+  QC.tests(20)
 )
 
 test('smallest failing log returned after shrinking', t => {

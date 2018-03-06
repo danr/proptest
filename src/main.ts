@@ -52,7 +52,7 @@ export type TestFunction<P, R> = <A>(
   description: string,
   g: Gen<A>,
   prop: (a: A, p: Property) => P,
-  options?: Options
+  options?: Partial<Options>
 ) => R
 
 export type PropertyCreator<P, R> = TestFunction<P, R> & {
@@ -61,7 +61,7 @@ export type PropertyCreator<P, R> = TestFunction<P, R> & {
 }
 
 export function createProperty<R>(test: TestCreator<R>): PropertyCreator<boolean, R> {
-  const testCreator: any = ((description, g, prop, options?) => {
+  const testCreator: any = ((description, g, prop, options) => {
     test(description, () => assertForall(g, prop, options))
   }) as TestFunction<boolean, R>
   const only: TestFunction<boolean, R> = (description, g, prop, options?) => {
