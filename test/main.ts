@@ -47,9 +47,7 @@ check(
     const k = (r: typeof a) => Utils.record_traverse(r, (v, k) => ({k, v}))
     return p.equals(k(a).concat(k(b)), k({...a, ...b}))
   },
-  {...QC.expectFailure,
-   ...QC.maxShrinks(10), // shrinking is very slow for this example so let's disable it for now
-  }
+  QC.expectFailure,
 )
 
 check('traverse homomorphic with no overlap', Gen.nat.pojo().replicate(2), ([a, b], p) => {
