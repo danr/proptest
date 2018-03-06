@@ -186,7 +186,7 @@ function initProperty() {
 
 export const defaultOptions = {
   tests: 100,
-  maxShrinks: 100,
+  maxShrinks: 1000,
   seed: 43 as number | undefined,
   expectFailure: false,
 }
