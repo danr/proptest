@@ -47,5 +47,5 @@ test('dfs only forces the path it takes', t => {
     return n
   })
   tree.left_first_search(n => n > 0)
-  t.ok(called < 22)
+  t.ok(called < 40)
 })

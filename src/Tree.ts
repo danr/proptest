@@ -72,14 +72,21 @@ export class Tree<A> {
 
 const resolution = 0.01
 
-function halves(n: number, round = (x: number) => Math.floor(x)): number[] {
-  const out: number[] = []
-  let i = n
-  do {
-    i = round(i / 2)
-    out.push(i)
-  } while (i > resolution)
-  return out
+function halves(x: number): Lz.LazyList<number> {
+  if (x != Math.round(x)) {
+    return halves(Math.round(x))
+  }
+  function less(a: number, b: number): boolean {
+    const nna = a >= 0
+    const nnb = b >= 0
+
+        if (nna &&   nnb)  { return  a < b }
+        else if (!nna && !nnb) { return  a > b }
+        else if (nna &&   !nnb) { return  a + b < 0 }
+        else   { return  a + b > 0 }
+  }
+  const half = (i: number) => Math.floor(i / 2)
+  return Lz.takeWhile<number>(i => less(i, x), Lz.cons(0, Lz.map(i => x - i, Lz.iterate(half(x), half))))
 }
 
 export function shrinkNumber(n: number, towards: number = 0): Tree<number> {
@@ -88,22 +95,8 @@ export function shrinkNumber(n: number, towards: number = 0): Tree<number> {
   } else if (n < 0) {
     return shrinkNumber(-n).map(i => -i)
   } else {
-    return (function go(i: number): Tree<number> {
-      const candidates: number[] = []
-      if (i > 0) {
-        // binary search:
-        candidates.push(...halves(i))
-        // binary search with fractions
-        if (Math.round(i) != i && i > resolution) {
-          candidates.push(...halves(i, x => x))
-        }
-      }
-      // fallback: linear search, although this is not really feasible in a big range
-      const range = 10
-      for (let j = i - 1, c = 0; j > Math.ceil(i / 2) && c < range; j--, c++) {
-        candidates.push(j)
-      }
-      return new Tree(i, Lz.map(go, Lz.fromArray(candidates)))
+    return (function go(x: number): Tree<number> {
+      return new Tree(x, Lz.map(go, halves(x)))
     })(n)
   }
 }

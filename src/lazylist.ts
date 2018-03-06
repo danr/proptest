@@ -1,5 +1,4 @@
 export type Thunk<A> = {
-  forced: boolean
   expr: (() => A) | undefined
   memorized: A | undefined
 }
@@ -46,6 +45,19 @@ export function flatten<A>(ls: LazyList<LazyList<A>>): LazyList<A> {
   return thunk(() => {
     const as = force(ls)
     return as ? force(concat(as.head, flatten(as.tail))) : undefined
+  })
+}
+
+export function iterate<A>(init: A, loop: (a: A) => A): LazyList<A> {
+  return thunk(() => {
+    return {head: init, tail: iterate(loop(init), loop)}
+  })
+}
+
+export function takeWhile<A>( p: (a: A) => boolean, ls: LazyList<A>): LazyList<A> {
+  return thunk(() => {
+    const as = force(ls)
+    return as && p(as.head) ? {head: as.head, tail: takeWhile(p, as.tail)} : undefined
   })
 }
 
