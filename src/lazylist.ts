@@ -19,7 +19,12 @@ export function force<A>(thunk: Thunk<A>): A {
  * A lazy list is a thunk that is either a pair of a value an a tail or the
  * empty list (represented as undefined)
  */
-export type LazyList<A> = Thunk<{head: A; tail: LazyList<A>} | undefined>
+export type LazyList<A> = Thunk<Cons<A> | undefined>
+
+export interface Cons<A> {
+  head: A
+  tail: LazyList<A>
+}
 
 export const nil = thunk(() => undefined)
 

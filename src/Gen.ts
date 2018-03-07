@@ -136,10 +136,10 @@ export function oneof<A>(gs: Gen<A>[]): Gen<A> {
 }
 
 export function frequency<A>(table: [number, Gen<A>][]): Gen<A> {
-  return frequencyLazy(table.map(([i, g]) => Utils.pair(i, () => g)))
+  return lazyFrequency(table.map(([i, g]) => Utils.pair(i, () => g)))
 }
 
-export function frequencyLazy<A>(table: [number, () => Gen<A>][]): Gen<A> {
+export function lazyFrequency<A>(table: [number, () => Gen<A>][]): Gen<A> {
   let sum = 0
   table.forEach(([f, g]) => {
     if (f >= 0) {
@@ -365,4 +365,35 @@ export function permute<A>(xs: A[]): Gen<A[]> {
     })
     return ys
   })
+}
+
+export function rec<A>(g: (tie: (size?: number) => Gen<A>, size: number) => Gen<A>): Gen<A> {
+  return letrec<{me: A}>({
+    me(tie, size) {
+      return g(size => tie.me(size), size)
+    },
+  }).me
+}
+
+function letrecSized<R extends Record<string, any>>(
+  size0: number,
+  generators: {
+    [K in keyof R]: (tie: {[K in keyof R]: (size?: number) => Gen<R[K]>}, size: number) => Gen<R[K]>
+  }
+): {[K in keyof R]: Gen<R[K]>} {
+  const tie: {[K in keyof R]: (size?: number) => Gen<R[K]>} = Utils.record_map(
+    generators,
+    (_, k) => (size?: number) => letrecSized(size === undefined ? size0 - 1 : size, generators)[k]
+  )
+  return Utils.record_map(generators, f => f(tie, Math.max(0, Math.floor(size0))))
+}
+
+export function letrec<R extends Record<string, any>>(
+  generators: {
+    [K in keyof R]: (tie: {[K in keyof R]: (size?: number) => Gen<R[K]>}, size: number) => Gen<R[K]>
+  }
+): {[K in keyof R]: Gen<R[K]>} {
+  return Utils.record_map(generators, (f, k) =>
+    pos.chain(size0 => letrecSized(size0, generators)[k])
+  )
 }

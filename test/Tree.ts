@@ -2,42 +2,10 @@ import {Tree, shrinkNumber} from '../src/Tree'
 import * as Lz from '../src/lazylist'
 import * as QC from '../src/main'
 import * as Gen from '../src/main'
+import * as Utils from '../src/Utils'
 import * as test from 'tape'
 
 const check = QC.adaptTape(test)
-
-const GTree = <A>(g: QC.Gen<A>) =>
-  Gen.nat.chain(s0 => {
-    function go(s: number): QC.Gen<Tree<A>> {
-      return Gen.frequency([
-        [1, g.map(Tree.of)],
-        [
-          s,
-          g.chain(top =>
-            Gen.between(2, 5).chain(n =>
-              go(Math.max(0, Math.round(s / n)))
-                .replicate(n)
-                .map(tree => new Tree(top, Lz.fromArray(tree)))
-            )
-          ),
-        ],
-      ])
-    }
-    return go(s0)
-  })
-
-check('tree join left', GTree(Gen.nat), (t, p) =>
-  p.equals(
-    Tree.of(t)
-      .chain(t => t)
-      .force(),
-    t.force()
-  )
-)
-
-check('tree join right', GTree(Gen.bin), (t, p) =>
-  p.equals(t.chain(j => Tree.of(j)).force(), t.force())
-)
 
 test('dfs only forces the path it takes', t => {
   t.plan(1)
@@ -48,4 +16,54 @@ test('dfs only forces the path it takes', t => {
   })
   tree.left_first_search(n => n > 0)
   t.ok(called < 40)
+})
+
+const recTree = <A>(g: QC.Gen<A>) =>
+  Gen.rec<Tree<A>>((tie, size) =>
+    g.chain(top =>
+      (size > 0 ? Gen.between(2, 5) : Gen.of(0)).chain(n =>
+        tie(size / (n + 1))
+          .replicate(n)
+          .map(forest => new Tree(top, Lz.fromArray(forest)))
+      )
+    )
+  )
+
+const letrecTree = <A>(g: QC.Gen<A>) =>
+  Gen.letrec<{Tree: Tree<A>; List: Lz.LazyList<Tree<A>>}>({
+    Tree(tie, size) {
+      return g.chain(top =>
+        (size > 0 ? Gen.between(2, 5) : Gen.of(1)).chain(n =>
+          tie.List(size / n).map(forest => new Tree(top, forest))
+        )
+      )
+    },
+    List(tie, size) {
+      return Gen.lazyFrequency<Lz.LazyList<Tree<A>>>([
+        [1, () => Gen.of(Lz.nil)],
+        [size, () => tie.Tree().chain(x => tie.List().map(xs => Lz.cons(x, xs)))],
+      ])
+    },
+  })
+
+const versions = {
+  rec: recTree(Gen.bin),
+  letrec: letrecTree(Gen.bin).Tree,
+}
+
+Utils.record_forEach(versions, (TreeGen, version) => {
+  const tap = <A>(a: A) => console.log(JSON.stringify(a, undefined, 2)) || a
+
+  check(version + ' tree join left', TreeGen, (t, p) =>
+    p.equals(
+      Tree.of(t)
+        .chain(t => t)
+        .force(),
+      t.force()
+    )
+  )
+
+  check(version + ' tree join right', TreeGen, (t, p) =>
+    p.equals(t.chain(j => Tree.of(j)).force(), t.force())
+  )
 })
