@@ -79,7 +79,7 @@ yarn add --dev proptest
 
 ### Ongoing discussions
 
-* Should properties return a boolean of success or just not throw an assertion? [#6](https://github.com/danr/proptest/pull/6)[#6]  [#5](https://github.com/danr/proptest/issues/5)[#5]
+* Should properties return a boolean of success or just not throw an assertion? [#6](https://github.com/danr/proptest/pull/6) [#5](https://github.com/danr/proptest/issues/5)
 
 ### License
 
