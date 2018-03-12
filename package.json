@@ -1,7 +1,7 @@
 {
   "name": "proptest",
   "license": "MIT",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "Dan Rosén",
   "description": "Property based testing for TypeScript",
   "main": "dist/src/main.js",
