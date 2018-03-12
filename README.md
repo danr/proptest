@@ -1,7 +1,7 @@
-# QuickCheck for TypeScript
+# Property-based testing for TypeScript and JavaScript
 
 This is an implementation of property-based testing a'la QuickCheck for TypeScript.
-(It works with plain JavaScript and languages like CoffeeScript too)
+It works with plain JavaScript and languages like CoffeeScript too.
 
 Shrinking is done by generating lazy rose trees of values directly.
 This means that you can map and chain generators and get correct
@@ -24,7 +24,7 @@ describe('f', () => {
 })
 ```
 
-(to be improved; remove returning a boolean: [discussion](https://github.com/danr/ts-quickcheck/pull/6#issuecomment-370249397))
+(to be improved; remove returning a boolean: [discussion](https://github.com/danr/proptest/pull/6#issuecomment-370249397))
 
 #### Usage with tape
 
@@ -64,16 +64,16 @@ own library:
 yarn run tsc
 yarn link
 cd ../my-cool-project
-yarn link ts-quickcheck # viola
+yarn link proptest # viola
 ```
 
 ### Contributors
 
-* Simon Friis Vindum [@paldepind](https://github.com/paldepind) ([commits](https://github.com/danr/ts-quickcheck/commits?author=paldepind))
+* Simon Friis Vindum [@paldepind](https://github.com/paldepind) ([commits](https://github.com/danr/proptest/commits?author=paldepind))
 
 ### Ongoing discussions
 
-* Rename package: [#7](https://github.com/danr/ts-quickcheck/issues/7)
+* Rename package: [#7](https://github.com/danr/proptest/issues/7)
 
 ### License
 

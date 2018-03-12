@@ -1,22 +1,22 @@
 {
-  "name": "ts-quickcheck",
+  "name": "proptest",
   "license": "MIT",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "author": "Dan Rosén",
   "description": "Property based testing for TypeScript",
   "main": "dist/src/main.js",
   "types": "dist/src/main.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danr/ts-quickcheck.git"
+    "url": "git+https://github.com/danr/proptest.git"
   },
   "directories": {
     "test": "test"
   },
   "bugs": {
-    "url": "https://github.com/danr/ts-quickcheck/issues"
+    "url": "https://github.com/danr/proptest/issues"
   },
-  "homepage": "https://github.com/danr/ts-quickcheck#readme",
+  "homepage": "https://github.com/danr/proptest#readme",
   "keywords": [
     "quickcheck",
     "property",
@@ -42,6 +42,7 @@
     "build": "tsc",
     "prettier": "prettier --list-different --write \"{src,test}/**/*.ts\"",
     "prepare": "tsc",
+    "prepublishOnly": "tsc",
     "test": "ts-node node_modules/tape/bin/tape test/*.ts | tap-spec"
   },
   "prettier": {
