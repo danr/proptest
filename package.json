@@ -41,7 +41,7 @@
   "scripts": {
     "build": "tsc",
     "prettier": "prettier --list-different --write \"{src,test}/**/*.ts\"",
-    "prepare": "npm run build",
+    "prepare": "tsc",
     "test": "ts-node node_modules/tape/bin/tape test/*.ts | tap-spec"
   },
   "prettier": {
