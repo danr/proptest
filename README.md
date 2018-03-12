@@ -13,6 +13,7 @@ such as Hedgehog for Haskell, Hypothesis for Python and test.check for Clojure)
 #### Usage with mocha and jest
 
 ```typescript
+import * as QC from 'proptest'
 const property = QC.createProperty(it)
 
 describe('f', () => {
@@ -29,6 +30,7 @@ describe('f', () => {
 #### Usage with tape
 
 ```typescript
+import * as QC from 'proptest'
 const check = QC.adaptTape(test)
 
 check('f commutative', QC.nat.two(), ([x, y]) => f(x, y) === f(y, x))
@@ -37,6 +39,7 @@ check('f commutative', QC.nat.two(), ([x, y]) => f(x, y) === f(y, x))
 #### Usage with AVA
 
 ```typescript
+import * as QC from 'proptest'
 test('f commutative', t => {
   t.true(QC.stdoutForall(QC.nat.two(), ([x, y]) => f(x, y) === f(y, x)))
 })
@@ -47,6 +50,7 @@ test('f commutative', t => {
 #### Usage without a library as an assertion
 
 ```typescript
+import * as QC from 'proptest'
 QC.assertForall(QC.nat.two(), ([x, y]) => f(x, y) === f(y, x))
 ```
 
@@ -56,16 +60,18 @@ passed or `{'ok': false}` and the counterexample (or other information) if it di
 
 ### Installation
 
-Right now there is no npm release because I am still ironing out
-quirks and the api, but you can test it by linking it to your
-own library:
+You can grab it from npm:
 
 ```
-yarn run tsc
-yarn link
-cd ../my-cool-project
-yarn link proptest # viola
+npm i -D proptest
 ```
+
+You may use yarn:
+
+```
+yarn add --dev proptest
+```
+
 
 ### Contributors
 
@@ -73,7 +79,7 @@ yarn link proptest # viola
 
 ### Ongoing discussions
 
-* Rename package: [#7](https://github.com/danr/proptest/issues/7)
+* Should properties return a boolean of success or just not throw an assertion? [#6](https://github.com/danr/proptest/pull/6)[#6]  [#5](https://github.com/danr/proptest/issues/5)[#5]
 
 ### License
 
