@@ -55,7 +55,7 @@ QC.assertForall(QC.nat.two(), ([x, y]) => f(x, y) === f(y, x))
 ```
 
 
-The API exports a function `search` which return returns `{'ok': true}` if the property
+The API exports a function `search` which returns `{'ok': true}` if the property
 passed or `{'ok': false}` and the counterexample (or other information) if it did not.
 
 ### Installation
