@@ -33,16 +33,6 @@ export class Tree<A> {
     return Tree.dist({a: this, b: tb}).map(p => Utils.pair(p.a, p.b))
   }
 
-  /** returns the last but leftmost subtree without any backtracking
-   where the property is true */
-  left_first_search(p: (a: A) => boolean, fuel = -1): {tree: Tree<A>; fuel: number} | undefined {
-    if (p(this.top)) {
-      return dfs(p, this, fuel)
-    } else {
-      return undefined
-    }
-  }
-
   /** distribute fairly */
   static dist<T extends Record<string, any>>(trees: {[K in keyof T]: Tree<T[K]>}): Tree<T> {
     const keys: (keyof T)[] = Object.keys(trees)
@@ -67,6 +57,83 @@ export class Tree<A> {
       top: this.top,
       forest: depth == 0 ? [] : Lz.toArray(this.forest).map(t => t.force(depth - 1)),
     }
+  }
+
+  /** returns the last but leftmost subtree without any backtracking
+   where the property is true */
+  left_first_search<B>(p: (a: A) => B | undefined, fuel = -1): {match: B; fuel: number} | undefined {
+    const b = p(this.top)
+    if (b) {
+      return dfs(b, p, this, fuel)
+    } else {
+      return undefined
+    }
+  }
+
+  async left_first_search_async<B>(p: (a: A) => Promise<B | undefined>, fuel = -1): Promise<{match: B; fuel: number} | undefined> {
+    const b = await p(this.top)
+    if (b !== undefined) {
+      return dfsAsync(b, p, this, fuel)
+    } else {
+      return undefined
+    }
+  }
+}
+
+
+/** Searches from the children of the tree */
+export function dfs<A, B>(
+  b: B,
+  p: (a: A) => B | undefined,
+  tree: Tree<A>,
+  fuel: number
+): {match: B; fuel: number} {
+  let child = Lz.force(tree.forest)
+  while (child !== undefined) {
+    if (fuel == 0) {
+      break
+    }
+    fuel--
+    const b2 = p(child.head.top)
+    if (b2 !== undefined) {
+      return dfs(b2, p, child.head, fuel)
+    }
+    child = Lz.force(child.tail)
+  }
+  return {match: b, fuel}
+}
+
+/** Searches from the children of the tree */
+export async function dfsAsync<A, B>(
+  b: B,
+  p: (a: A) => Promise<B | undefined>,
+  tree: Tree<A>,
+  fuel: number
+): Promise<{match: B, fuel: number}> {
+  let child = Lz.force(tree.forest)
+  while (child !== undefined) {
+    if (fuel == 0) {
+      break
+    }
+    fuel--
+    const b2 = await p(child.head.top)
+    if (b2 !== undefined) {
+      return dfsAsync(b2, p, child.head, fuel)
+    }
+    child = Lz.force(child.tail)
+  }
+  return {match: b, fuel}
+}
+
+export function shrinkNumber(n: number, towards: number = 0): Tree<number> {
+  if (towards != 0) {
+    return shrinkNumber(towards - n).map(i => towards - i)
+  } else if (n < 0) {
+    return shrinkNumber(-n).map(i => -i)
+  } else {
+    return (function go(x: number): Tree<number> {
+      return new Tree(x, Lz.map(go, halves(x)))
+    })(n)
   }
 }
 
@@ -100,36 +167,7 @@ function halves(x: number): Lz.LazyList<number> {
     i => less(i, x),
     Lz.cons(0, Lz.map(i => x - i, Lz.iterate(half(x), half)))
   )
-}
 
-export function shrinkNumber(n: number, towards: number = 0): Tree<number> {
-  if (towards != 0) {
-    return shrinkNumber(towards - n).map(i => towards - i)
-  } else if (n < 0) {
-    return shrinkNumber(-n).map(i => -i)
-  } else {
-    return (function go(x: number): Tree<number> {
-      return new Tree(x, Lz.map(go, halves(x)))
-    })(n)
-  }
-}
 
-/** Assumes that the property already holds for the top of the tree. */
-export function dfs<A>(
-  p: (a: A) => boolean,
-  tree: Tree<A>,
-  fuel: number
-): {tree: Tree<A>; fuel: number} | undefined {
-  let child = Lz.force(tree.forest)
-  while (child !== undefined) {
-    if (fuel == 0) {
-      break
-    }
-    fuel--
-    if (p(child.head.top)) {
-      return dfs(p, child.head, fuel)
-    }
-    child = Lz.force(child.tail)
-  }
-  return {tree, fuel}
+
 }
