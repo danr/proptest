@@ -52,6 +52,16 @@ export class Gen<A> {
   pair<B>(b: Gen<B>): Gen<[A, B]> {
     return pair(this, b)
   }
+  replicate(n: 1): Gen<[A]>
+  replicate(n: 2): Gen<[A, A]>
+  replicate(n: 3): Gen<[A, A, A]>
+  replicate(n: 4): Gen<[A, A, A, A]>
+  replicate(n: 5): Gen<[A, A, A, A, A]>
+  replicate(n: 6): Gen<[A, A, A, A, A, A]>
+  replicate(n: 7): Gen<[A, A, A, A, A, A, A]>
+  replicate(n: 8): Gen<[A, A, A, A, A, A, A, A]>
+  replicate(n: 9): Gen<[A, A, A, A, A, A, A, A, A]>
+  replicate(n: number): Gen<A[]>
   replicate(n: number): Gen<A[]> {
     return replicate(n, this)
   }
@@ -175,6 +185,16 @@ export function pair<A, B>(ga: Gen<A>, gb: Gen<B>): Gen<[A, B]> {
   })
 }
 
+export function replicate<A>(n: 1, g: Gen<A>): Gen<[A]>
+export function replicate<A>(n: 2, g: Gen<A>): Gen<[A, A]>
+export function replicate<A>(n: 3, g: Gen<A>): Gen<[A, A, A]>
+export function replicate<A>(n: 4, g: Gen<A>): Gen<[A, A, A, A]>
+export function replicate<A>(n: 5, g: Gen<A>): Gen<[A, A, A, A, A]>
+export function replicate<A>(n: 6, g: Gen<A>): Gen<[A, A, A, A, A, A]>
+export function replicate<A>(n: 7, g: Gen<A>): Gen<[A, A, A, A, A, A, A]>
+export function replicate<A>(n: 8, g: Gen<A>): Gen<[A, A, A, A, A, A, A, A]>
+export function replicate<A>(n: 9, g: Gen<A>): Gen<[A, A, A, A, A, A, A, A, A]>
+export function replicate<A>(n: number, g: Gen<A>): Gen<A[]>
 export function replicate<A>(n: number, g: Gen<A>): Gen<A[]> {
   if (n <= 0) {
     return Gen.of([] as A[])
@@ -213,16 +233,16 @@ export function pow<A>(exponent: number, g: Gen<A>): Gen<A> {
 }
 
 export function one<A>(g: Gen<A>): Gen<[A]> {
-  return g.replicate(1) as any
+  return g.replicate(1)
 }
 export function two<A>(g: Gen<A>): Gen<[A, A]> {
-  return g.replicate(2) as any
+  return g.replicate(2)
 }
 export function three<A>(g: Gen<A>): Gen<[A, A, A]> {
-  return g.replicate(3) as any
+  return g.replicate(3)
 }
 export function four<A>(g: Gen<A>): Gen<[A, A, A, A]> {
-  return g.replicate(4) as any
+  return g.replicate(4)
 }
 
 //////////////////////////////////////////////////////////////////////
