@@ -35,6 +35,15 @@ export const assertForall = searchAndThen(res => {
   }
 })
 
+/** Searches for a counterexample to an asynchronous property and throws an error if one is found */
+export const assertForallAsync = searchAndThenAsync(res => {
+  if (!res.ok) {
+    const w = P.Write()
+    w.SearchResult(res)
+    throw new Error(w.messages.map(xs => xs.join(' ')).join('\n'))
+  }
+})
+
 /** Searches for a counterexample and returns the result formatted as an array of strings */
 export const forallStrings = searchAndThen(res => {
   const w = P.Write()
