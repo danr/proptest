@@ -51,6 +51,13 @@ export const forallStrings = searchAndThen(res => {
   return {ok: res.ok, messages: w.messages.map(xs => xs.join(' '))}
 })
 
+/** Searches for a counterexample to an asynchronous property and returns the result formatted as an array of strings */
+export const forallStringsAsync = searchAndThenAsync(res => {
+  const w = P.Write()
+  w.SearchResult(res)
+  return {ok: res.ok, messages: w.messages.map(xs => xs.join(' '))}
+})
+
 export interface TestCreator<R> {
   (description: string, callback: () => void): R
   only(description: string, callback: () => void): R
