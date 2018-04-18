@@ -1,8 +1,8 @@
 import * as Utils from './Utils'
 
 import * as P from './Property'
-import {Property, Options, search, searchAndThen} from './Property'
-export {Property, Options, search, searchAndThen}
+import {Property, Options, search, searchAsync, searchAndThen, searchAndThenAsync} from './Property'
+export {Property, Options, search, searchAsync, searchAndThen, searchAndThenAsync}
 
 import {Gen} from './Gen'
 export {Gen}

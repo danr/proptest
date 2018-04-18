@@ -218,7 +218,7 @@ export function testSize(test: number, numTests: number): number {
 
 export type Answer<A> = undefined | {value: A, exception?: any, log: any[][], fuel: number}
 
-async function searchAsync<A>(
+export async function searchAsync<A>(
   g: Gen<A>,
   prop: (a: A, p: Property) => Promise<boolean>,
   options?: Partial<Options>
