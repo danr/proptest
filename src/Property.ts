@@ -365,3 +365,9 @@ export function searchAndThen<R>(
 ): <A>(g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Partial<Options>) => R {
   return (g, prop, options) => then(search(g, prop, options))
 }
+
+export function searchAndThenAsync<R>(
+  then: <A>(a: SearchResult<A>) => R
+): <A>(g: Gen<A>, prop: (a: A, p: Property) => Promise<boolean>, options?: Partial<Options>) => Promise<R> {
+  return async (g, prop, options) => then(await searchAsync(g, prop, options))
+}
