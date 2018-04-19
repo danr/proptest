@@ -247,6 +247,34 @@ test('forall exceptions catches counterexamples, fully shrunk', t => {
   }
 })
 
+function delay<T>(x: T): Promise<T> {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve(x)
+    }, 10)
+  })
+}
+
+test('succeeding asynchronous forall passes', async t => {
+  await QC.assertForallAsync(QC.nat, async n => {
+    return await delay(n) === n
+  })
+  t.pass("passed")
+  t.end()
+})
+
+test('failing asynchronous forall fails with exception', async t => {
+  try {
+    await QC.assertForallAsync(QC.nat, async n => {
+      return (await delay(n)) === n + 1
+    })
+    t.fail()
+  } catch(e) {
+    t.pass("passed")
+    t.end()
+  }
+})
+
 /*
 
 const STree = <A>(g: Gen<A>) => GTree(g).map(t => t.force())

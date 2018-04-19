@@ -1,8 +1,8 @@
 import * as Utils from './Utils'
 
 import * as P from './Property'
-import {Property, Options, search, searchAndThen} from './Property'
-export {Property, Options, search, searchAndThen}
+import {Property, Options, search, searchAsync, searchAndThen, searchAndThenAsync} from './Property'
+export {Property, Options, search, searchAsync, searchAndThen, searchAndThenAsync}
 
 import {Gen} from './Gen'
 export {Gen}
@@ -35,8 +35,24 @@ export const assertForall = searchAndThen(res => {
   }
 })
 
+/** Searches for a counterexample to an asynchronous property and throws an error if one is found */
+export const assertForallAsync = searchAndThenAsync(res => {
+  if (!res.ok) {
+    const w = P.Write()
+    w.SearchResult(res)
+    throw new Error(w.messages.map(xs => xs.join(' ')).join('\n'))
+  }
+})
+
 /** Searches for a counterexample and returns the result formatted as an array of strings */
 export const forallStrings = searchAndThen(res => {
+  const w = P.Write()
+  w.SearchResult(res)
+  return {ok: res.ok, messages: w.messages.map(xs => xs.join(' '))}
+})
+
+/** Searches for a counterexample to an asynchronous property and returns the result formatted as an array of strings */
+export const forallStringsAsync = searchAndThenAsync(res => {
   const w = P.Write()
   w.SearchResult(res)
   return {ok: res.ok, messages: w.messages.map(xs => xs.join(' '))}

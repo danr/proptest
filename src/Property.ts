@@ -110,7 +110,15 @@ export interface Property {
   tap<A>(x: A, msg?: string): A
 }
 
-function initProperty() {
+interface PropertyInternal {
+  api: Property
+  locally<A>(f: () => A): A
+  locallyAsync<A>(f: () => Promise<A>): Promise<A>
+  last_log(): any[][]
+  test_details(tests: number, log: any[][]): TestDetails
+}
+
+function initProperty(): PropertyInternal {
   let current_log: any[][] = []
   let current_cover: Record<string, boolean> = {}
   const cover_req: Record<string, number> = {}
@@ -119,6 +127,30 @@ function initProperty() {
   let sealed: boolean = false
 
   return {
+    locally<A>(f: () => A): A {
+      current_log = []
+      current_cover = {}
+      return f()
+    },
+    async locallyAsync(f) {
+      current_log = []
+      current_cover = {}
+      return await f()
+    },
+    last_log() {
+      return current_log
+    },
+    test_details(tests: number, log: any[][]): TestDetails {
+      return {
+        covers: Utils.record_map(cover_req, (req, label) => ({
+          req,
+          hit: cover_hit[label],
+          miss: cover_miss[label],
+        })),
+        log,
+        tests,
+      }
+    },
     api: {
       tap(x, msg) {
         msg && current_log.push([msg, Utils.show(x)])
@@ -161,25 +193,6 @@ function initProperty() {
         }
         return e
       },
-    } as Property,
-    round(f: () => boolean): boolean {
-      current_log = []
-      current_cover = {}
-      return f()
-    },
-    last_log() {
-      return current_log
-    },
-    test_details(tests: number, log: any[][]): TestDetails {
-      return {
-        covers: Utils.record_map(cover_req, (req, label) => ({
-          req,
-          hit: cover_hit[label],
-          miss: cover_miss[label],
-        })),
-        log,
-        tests,
-      }
     },
   }
 }
@@ -203,12 +216,72 @@ export function testSize(test: number, numTests: number): number {
   }
 }
 
+export type Answer<A> = undefined | {value: A, exception?: any, log: any[][], fuel: number}
+
+export async function searchAsync<A>(
+  g: Gen<A>,
+  prop: (a: A, p: Property) => Promise<boolean>,
+  options?: Partial<Options>
+): Promise<SearchResult<A>> {
+  const i = searchGenerator(g, options)
+  let msg = i.next()
+  while (true) {
+    if ('ok' in msg.value) {
+      return msg.value
+    } else {
+      const t = await msg.value.left_first_search_async(async ({a: value, p}) => {
+        try {
+          if (!await p.locallyAsync(async () => prop(value,p.api))) {
+            return {value, log: p.last_log()}
+          }
+        } catch (exception) {
+          return {value, exception, log: p.last_log()}
+        }
+      })
+      if (t !== undefined) {
+        msg = i.next({...t.match, fuel: t.fuel})
+      } else {
+        msg = i.next(undefined)
+      }
+    }
+  }
+}
+
 /** Searches for a counterexample and returns as most information as possible. */
 export function search<A>(
   g: Gen<A>,
   prop: (a: A, p: Property) => boolean,
   options?: Partial<Options>
 ): SearchResult<A> {
+  const i = searchGenerator(g, options)
+  let msg = i.next()
+  while (true) {
+    if ('ok' in msg.value) {
+      return msg.value
+    } else {
+      const t = msg.value.left_first_search(({a: value, p}) => {
+        try {
+          if (!p.locally(() => prop(value,p.api))) {
+            return {value, log: p.last_log()}
+          }
+        } catch (exception) {
+          return {value, exception, log: p.last_log()}
+        }
+      })
+      if (t !== undefined) {
+        msg = i.next({...t.match, fuel: t.fuel})
+      } else {
+        msg = i.next(undefined)
+      }
+    }
+  }
+}
+
+
+function* searchGenerator<A,B>(
+  g: Gen<A>,
+  options?: Partial<Options>
+): Iterator<SearchResult<A>|Tree<{a: A, p: PropertyInternal}>> {
   const opts = {...defaultOptions, ...(options || {})}
   const p = initProperty()
   const not_ok = {ok: false as false}
@@ -241,43 +314,30 @@ export function search<A>(
         ...p.test_details(tests, []),
       })
     }
-    const evaluated = t.map((value): undefined | {value: A; exception?: any} => {
-      try {
-        const res = p.round(() => prop(value, p.api))
-        if (!res) {
-          log = p.last_log()
-          return {value}
-        }
-      } catch (exception) {
-        log = p.last_log()
-        return {value, exception}
-      }
-    })
-    const res = evaluated.left_first_search(x => x !== undefined, opts.maxShrinks)
+    const to_search: Tree<{a: A, p: PropertyInternal}> = t.map(a => ({a, p}))
+    const res: Answer<A> = yield to_search
+    // .left_first_search(x => x !== undefined, opts.maxShrinks)
     if (!res) {
       continue
     }
-    const top = res.tree.top
     const shrinks = opts.maxShrinks == -1 ? -res.fuel : opts.maxShrinks - res.fuel
-    if (top === undefined) {
-      continue
-    } else if ('exception' in top) {
+    if ('exception' in res) {
       return ret({
         ...not_ok,
         reason: 'exception',
-        exception: top.exception,
+        exception: res.exception,
         when: 'evaluating',
-        counterexample: top.value,
+        counterexample: res.value,
         shrinks,
-        ...p.test_details(tests, log),
+        ...p.test_details(tests, res.log),
       })
     } else {
       return ret({
         ...not_ok,
         reason: 'counterexample',
-        counterexample: top.value,
+        counterexample: res.value,
         shrinks,
-        ...p.test_details(tests, log),
+        ...p.test_details(tests, res.log),
       })
     }
   }
@@ -296,11 +356,18 @@ export function search<A>(
       })
     }
   }
-  return ret({ok: true, ...test_details})
+  yield ret({ok: true, ...test_details})
 }
+
 
 export function searchAndThen<R>(
   then: <A>(a: SearchResult<A>) => R
 ): <A>(g: Gen<A>, prop: (a: A, p: Property) => boolean, options?: Partial<Options>) => R {
   return (g, prop, options) => then(search(g, prop, options))
+}
+
+export function searchAndThenAsync<R>(
+  then: <A>(a: SearchResult<A>) => R
+): <A>(g: Gen<A>, prop: (a: A, p: Property) => Promise<boolean>, options?: Partial<Options>) => Promise<R> {
+  return async (g, prop, options) => then(await searchAsync(g, prop, options))
 }
